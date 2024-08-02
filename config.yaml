@@ -1,0 +1,31 @@
+---
+# Parameter configuration file
+
+DEPENDANCES:
+    HISAT2:  "hisat2" # [required] path to hisat2 executable
+    SAMTOOLS: "samtools" # [required] path to samtools executable
+    PIGZ: "pigz" # [required] path to pigz executable
+    FEATURECOUNTS: "featureCounts" # [required] path to featureCounts executable
+
+DATA_INPUT:
+    WORKING_DIRECTORY:  "data_input"  # [required] Path to input data tree. Default folder is data_input
+    GENOME:  "GRCh37.p13.chr.fa"  # [required] Name of reference file in working_directory/reference/
+    ANNOTATION: "GRCh37.p13.SLA.chr.gtf" # [required] Name of gene annotation file in gtf/gff/saf format in working_directory/annoation
+
+PARAMS:
+    GENERAL:
+        WORKING_DIRECTORY:  ""  # [optional] Path to working directory. Default: in current directory
+        PREFIX:  "test_260424"  # [required] Name of run
+    FILTERFASTQ:
+        USE:  0 #[required] 0: Fastq is not filter (fastp). 1: Fastq is filter (fastp)
+        THREADS:  1  # [required] Maximum number of threads the rule can use
+    HISAT2:
+        THREADS:  1  # [required] Maximum number of threads the rule can use
+    SAMTOOLS:
+        THREADS:  1  # [required] Maximum number of threads the rule can use
+    COMPRESS:
+        THREADS: 1 # [required] Maximum number of threads the rule can use
+    FEATURECOUNTS:
+        THREADS: 1 # [required] Maximum number of threads the rule can use
+    MERGING:
+        THREADS: 2 # [required] Maximum number of threads the rule can use
