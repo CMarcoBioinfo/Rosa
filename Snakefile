@@ -2,6 +2,10 @@
 import subprocess
 import os
 import sys
+import pandas as pd
+import time
+from inotify_simple import INotify, flags
+import fcntl
 
 
 #Function use
@@ -10,6 +14,45 @@ import sys
 def create_directory_if_not_exists(directory):
     if not os.path.exists(directory):
         os.makedirs(directory,exsit_ok=True)
+
+
+def lock_file(file_path):
+    if not os.path.exists(file_path):
+        open(file_path, "w").close()
+    lock_file = open(file_path, "r+")
+    fcntl.flock(lock_file, fcntl.LOCK_EX)
+    return lock_file
+
+
+def unclock_file(lock_file):
+    fcntl.flock(lock_file, fcntl.LOCK_UN)
+    lock_file.close()
+
+
+#Add file on metadata
+def add_file(name,path):
+    metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+
+    if os.path.exists(metadata) & os.path.getsize(metadata) > 0:
+        df = pd.read_csv(metadata)
+
+    else:
+        df = pd.DataFrame(columns=["id", "path"])
+    
+    if name not in df["id"].values:
+        new_row = pd.DataFrame([{"id" : name, "path": path}])
+        df = pd.concat([df,new_row], ignore_index=True)
+    
+        df.to_csv(metadata, index=False)
+
+#Return list of available count files
+def get_available_files():
+    metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+    df = pd.read_csv(metadata, sep = "\t")
+    files = df["path"].tolist()
+
+
+
 
 #Check if varaible is None or empty
 def check_value (var):
@@ -122,4 +165,4 @@ include: "modules/featureCounts.smk"
 
 rule all:
     input:
-        controlFiles = expand(config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/.Control/{all_samples}.txt",all_samples=all_samples)
+        mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
