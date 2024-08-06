@@ -33,7 +33,7 @@ def unclock_file(lock_file):
 def add_file(name,path):
     metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
 
-    if os.path.exists(metadata) & os.path.getsize(metadata) > 0:
+    if os.path.exists(metadata):
         df = pd.read_csv(metadata)
 
     else:
@@ -48,8 +48,12 @@ def add_file(name,path):
 #Return list of available count files
 def get_available_files():
     metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
-    df = pd.read_csv(metadata, sep = "\t")
-    files = df["path"].tolist()
+    if os.path.exists(metadata):
+        df = pd.read_csv(metadata, sep = "\t")
+        files = df["path"].tolist()
+    else:
+        files = []
+    return files
 
 
 
@@ -143,7 +147,6 @@ def list_samples():
     
     #Uniq ID
     all_samples = set(samples["id"])
-
     return all_samples
 
 

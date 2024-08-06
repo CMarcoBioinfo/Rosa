@@ -1,44 +1,44 @@
-import os
 import pandas as pd
-from filelock import FileLock
 from concurrent.futures import ThreadPoolExecutor
 
-def read_csv_file(csv, all_columns=False):
-    if all_columns:
-            return pd.read_csv(csv, sep="\t", index_col=0, comment="#")
-    return pd.read_csv(csv, sep="\t", index_col=0, usecols=[0, 6], comment="#")
+def read_file(file):
+    return pd.read_csv(file, sep="\t", index_col=0, comment="#")
 
-def merging_files(merged_file, count_file, control_file, threads=1):
+
+#Fusionne les fichiers crée par futureCOunts en une seuls fichier merged_file
+def merging_files(summary_file, merged_file, threads=1):
+
+    #Lire de la Datafram à partir du ficher summary
+    df = pd.read_csv(summary_file,sep="\t", index_col=0)
+
+    #Lire le fichier merged existant
+    try:
+        merged_data = pd.read_csv(merged_file, sep="\t",index_col=0)
+    except FileExistsError:
+        merged_data = pd.DataFrame()
+
+    #Extraction les ids et chemins du Dataframe
+    file_paths = df["path"].tolist()
+    ids = df["id"].tolist()
+
+    #Identifier les nouveau fichiers à traiter
+    new_files = []
+    new_ids = []
+    for file, id in zip(file_paths, ids):
+        if id not in merged_data.columns:
+            new_files.append(file)
+            new_ids.append(id)
     
-    #Create Filelock object
-    directory = os.path.dirname(merged_file)
-    file_name = os.path.basename(merged_file)
-    lock_file_name = "." + file_name + ".lock"
-    lock_file = os.path.join(directory,lock_file_name)
-    lock = FileLock(lock_file)
+    #Lire les nouveaux fichiers en prallèle
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        data_list = list(executor.map(read_file, new_files))
 
-    with lock:
-        with ThreadPoolExecutor(max_workers=threads) as executor:
-            #Read count file
-            all_columns = not os.path.exists(merged_file)
-            executor_count_file = executor.submit(read_csv_file, count_file, all_columns)
-            count_file_df = executor_count_file.result()
+    for i, df in enumerate(data_list):
+        df.columns = [new_ids[i]]
 
-            #Check if merged file exists
-            if os.path.exists(merged_file) and os.path.getsize(merged_file) > 0 :
-                #Read merged file
-                executor_merged_file = executor.submit(pd.read_csv, merged_file, sep="\t", index_col=0)
-                merged_file_df = executor_merged_file.result()
-            
-                #Add new count file
-                merged_df = pd.concat([merged_file_df,count_file_df], axis=1, join="inner")
+    #concaténation des données
+    new_data = pd.concat(data_list, axis=1, join="outer")
+    merged_data = pd.concat([merged_data, new_data],axis=1, join="outer")
 
-            else:
-                #Use count file as initial merged file
-                merged_df = count_file_df
-
-        #Save merge file
-        merged_df.to_csv(merged_file, sep="\t")
-
-        with open(control_file, "a") as file:
-            file.write(f"{count_file}\n")
+    #Ecriture des données fusionnées.
+    merged_data.to_csv(merged_file, sep="\t")
