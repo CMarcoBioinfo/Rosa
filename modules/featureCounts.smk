@@ -28,9 +28,7 @@ rule featureCounts:
         "-T {threads} "
         "-a {input.annotation} "
         "-o {params.directory}{params.reads}.counts {params.bam}")
-        lock_file(params.metadata)
-        add_file(params["reads"], output.countsFile)
-        unclock_file(params.metadata)
+        add_file(params["reads"], params["bam"], output.countsFile)
 
 
 rule merge_counts:
@@ -48,6 +46,6 @@ rule merge_counts:
 
 
     run:
-        mc.merging_files(input.metadata,params.mergeFile, threads)
+        mc.merging_files(params["metadata"],output.mergeFile, threads)
 
 

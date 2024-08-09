@@ -3,19 +3,48 @@ import subprocess
 import os
 import sys
 import pandas as pd
+import datetime
 import time
 from inotify_simple import INotify, flags
 import fcntl
 
-
 #Function use
+
+#Obtient la date de modification d'un path
+def get_date(path):
+    return datetime.datetime.fromtimestamp(os.path.getmtime(path))
+
+#Ecris la date d'un fichier ou dossier dans un fichier
+def write_date(path,date):
+    with open(path,"w") as file:
+        file.write(date.isoformat())
+
+#Lire le fichier de date
+def read_date(path):
+    with open(path, "r") as file:
+        date_str = file.read().strip()
+        return datetime.datetime.fromisoformat(date_str)
+
+#Renvoie la date la plus courrente des dossiers.
+
+def directories_recent_data():
+    base = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+    reads_directories = ["reads1/","reads2/","bam","reads"]
+    date = None
+    for directory in reads_directories:
+        wd = base + directory
+        tmp_date = get_date(wd)
+        if date is None or tmp_date > date:
+            date = tmp_date
+    return date
+
 
 #Create directory
 def create_directory_if_not_exists(directory):
     if not os.path.exists(directory):
         os.makedirs(directory,exsit_ok=True)
 
-
+#Lock un fichier
 def lock_file(file_path):
     if not os.path.exists(file_path):
         open(file_path, "w").close()
@@ -23,27 +52,26 @@ def lock_file(file_path):
     fcntl.flock(lock_file, fcntl.LOCK_EX)
     return lock_file
 
-
+#Unlock un fichier
 def unclock_file(lock_file):
     fcntl.flock(lock_file, fcntl.LOCK_UN)
     lock_file.close()
 
-
-#Add file on metadata
-def add_file(name,path):
+#Ajoute un sample au fichier metadata
+def add_file(name,path_bam,path_counts):
     metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
-
-    if os.path.exists(metadata):
-        df = pd.read_csv(metadata)
+    file_lock= lock_file(metadata)
+    if not os.path.exists(metadata) or os.path.getsize(metadata) == 0:
+        df = pd.DataFrame(columns=["id", "path_bam", "path_counts"])
 
     else:
-        df = pd.DataFrame(columns=["id", "path"])
-    
+        df = pd.read_csv(metadata,sep="\t",header=0,dtype={"id":str, "path_bam":str, "path_counts":str})
+
     if name not in df["id"].values:
-        new_row = pd.DataFrame([{"id" : name, "path": path}])
+        new_row = pd.DataFrame([{"id" : name, "path_bam": path_bam, "path_counts": path_counts}])
         df = pd.concat([df,new_row], ignore_index=True)
-    
-        df.to_csv(metadata, index=False)
+        df.to_csv(metadata, sep="\t", index=False)
+    unclock_file(file_lock)
 
 #Return list of available count files
 def get_available_files():
@@ -117,8 +145,8 @@ def check_suffix(id):
 #Them extracts the identifiers of these files
 def list_samples():
     base = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
-    reads_directories = ["reads1","reads2"]
-    format_directories = ["bam/", "reads"]
+    reads_directories = ["reads1/","reads2/"]
+    format_directories = ["bam/", "reads/"]
     samples = {"id": []}
 
     #Browse reads directories
@@ -149,14 +177,29 @@ def list_samples():
     all_samples = set(samples["id"])
     return all_samples
 
+samples_directory_date = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
+mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
 
+if (not os.path.exists(samples_directory_date)):
+    initial_directory_date = directories_recent_data()
+    write_date(samples_directory_date,initial_directory_date)
+else:
+    initial_directory_date = read_date(samples_directory_date)
 
-
+current_directory_date = directories_recent_data()
+if (os.path.exists(mergeFile)):
+    if (current_directory_date.timestamp() != initial_directory_date.timestamp()):
+        current_time = time.time()
+        os.utime(mergeFile,(current_time, current_time))
+        write_date(samples_directory_date,current_directory_date)
 
 
 #Variable
-
+summary_file = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+df_summary = pd.read_csv(summary_file,sep="\t", header=0)
+ids = df_summary["id"].values.tolist()
 all_samples = list_samples()
+
 
 
 #Calling Snakemake module
