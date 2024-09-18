@@ -1,6 +1,8 @@
 #Import dependences python
 import subprocess
 import os
+import time
+from pathlib import Path
 import sys
 import pandas as pd
 import datetime
@@ -32,7 +34,7 @@ def directories_recent_data():
     reads_directories = ["reads1/","reads2/","bam","reads"]
     date = None
     for directory in reads_directories:
-        wd = base + directory
+        wd = os.path.abspath(base + directory)
         tmp_date = get_date(wd)
         if date is None or tmp_date > date:
             date = tmp_date
@@ -112,7 +114,9 @@ def reads(wcs, read_suffix, filter_fastq=False):
                 read = wd + name + file_r + file_ext + ".gz"
     if filter_fastq:
         read = wd + name + "_" + read_suffix + ".filter.fastq.gz"
+    read = os.path.abspath(read)
     return read
+
 
 
 #Extract file ID
@@ -151,7 +155,7 @@ def list_samples():
 
     #Browse reads directories
     for directory in reads_directories:
-        wd = base + directory
+        wd = os.path.abspath(base + directory)
         sample_list = os.listdir(os.path.abspath(wd))
     
         #Browse file in directories
@@ -164,7 +168,7 @@ def list_samples():
     
     #Browse formatting directories 
     for directory in format_directories:
-        wd = base + directory
+        wd = os.path.abspath(base + directory)
         sample_list = os.listdir(os.path.abspath(wd))
 
         #Browse file in directories
@@ -194,21 +198,42 @@ if (os.path.exists(mergeFile)):
         write_date(samples_directory_date,current_directory_date)
 
 
-#Variable
+#Variables
 summary_file = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
-df_summary = pd.read_csv(summary_file,sep="\t", header=0)
-ids = df_summary["id"].values.tolist()
+if(os.path.exists(summary_file)) :
+    df_summary = pd.read_csv(summary_file,sep="\t", header=0)
+    ids = df_summary["id"].values.tolist()
+
 all_samples = list_samples()
 
+
+#Obtenir l'heure actuelle
+current_time = time.localtime()
+
+#Formater la date et l'heure comme identifiant unique
+unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
+ 
 
 
 #Calling Snakemake module
 
 include: "modules/formatting.smk"
+include: "modules/quality_control_fastq.smk"
 include: "modules/hisat2.smk"
 include: "modules/featureCounts.smk"
 
 
+# rule all:
+#     input:
+#         mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
+
+
 rule all:
     input:
-        mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
+        # read1 =expand(os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
+        # read2 =expand(os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
+        #bam = expand(config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
+        directory_data = directory(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/"),
+        html =config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
+        directory_data2 = directory(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/"),
+        html2 = config["DATA_INPUT"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html"

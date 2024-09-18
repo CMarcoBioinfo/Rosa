@@ -24,7 +24,7 @@ rule featureCounts:
 
     run:
         create_directory_if_not_exists(params["directory"])
-        shell("{params.featureCounts} -p "
+        shell("{params.featureCounts} -p --countReadPairs "
         "-T {threads} "
         "-a {input.annotation} "
         "-o {params.directory}{params.reads}.counts {params.bam}")
@@ -43,7 +43,6 @@ rule merge_counts:
 
     threads:
         config["PARAMS"]["MERGING"]["THREADS"]
-
 
     run:
         mc.merging_files(params["metadata"],output.mergeFile, threads)

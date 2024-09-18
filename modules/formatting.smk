@@ -11,13 +11,18 @@ rule compress_fastq:
 
     threads: 
         config["PARAMS"]["COMPRESS"]["THREADS"]
-
+    
+    log:
+        out = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/compress_fastq/{reads}.stdout.log",
+        err = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/compress_fastq/{reads}.stderr.log"
+    
     priority: 3
 
     shell:
         "{params.pigz} "
         "--best "
-        "--processes {threads} {input.read}"
+        "--verbose "
+        "--processes {threads} {input.read} > {log.out} 2> {log.err}"
 
 
 #Renames a read file
@@ -42,8 +47,8 @@ rule deinterleave_fastq:
         read = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads/{reads}.fastq.gz"
     
     output:
-        read1 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/reads1/{reads}_1.fastq.gz",
-        read2 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/reads2/{reads}_2.fastq.gz"
+        read1 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/{reads}_1.fastq.gz",
+        read2 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/{reads}_2.fastq.gz"
 
     params:
         pigz = config["DEPENDANCES"]["PIGZ"]
@@ -75,11 +80,16 @@ rule samtools_sort:
     threads: 
         config["PARAMS"]["SAMTOOLS"]["THREADS"]
 
+    log:
+        out = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{reads}stout.log",
+        err = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{reads}.stderr.log"
+
     shell:
         "{params.samtools} sort "
         "-n {input.bam} "
+        "--verbose "
         "-@ {threads} "
-        "-o {output.bam_sort}"
+        "-o {output.bam_sort} > {log.out} 2> {log.err}"
 
 
 #Converts a sorted BAM file into two separate FASTQ files.
@@ -88,14 +98,15 @@ rule samtools_fastq:
         bam_sort = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/bam/{reads}_sorted.bam"
     
     output:
-        read1 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/reads1/{reads}_1.fastq.gz",
-        read2 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/reads2/{reads}_2.fastq.gz"
+        read1 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/{reads}_1.fastq.gz",
+        read2 = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/{reads}_2.fastq.gz"
     
     params:
         samtools = config["DEPENDANCES"]["SAMTOOLS"]
     
     threads: 
         config["PARAMS"]["SAMTOOLS"]["THREADS"]
+
     
     shell:
         "{params.samtools} fastq "
@@ -105,3 +116,24 @@ rule samtools_fastq:
         "-2 {output.read2} "
         "-0 /dev/null -s /dev/null -n "
         "&& rm {input.bam_sort}"
+
+rule processed_fastq:
+    input:
+        read1 = lambda wcs: reads(wcs, "1"),
+        read2 =  lambda wcs: reads(wcs, "2")
+
+    output:
+        read1 = os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/{reads}_1.fastq.gz"),
+        read2 = os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/{reads}_2.fastq.gz")
+    
+    params:
+        directory = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/"
+
+    priority:4
+
+    run:
+        create_directory_if_not_exists(params["directory"])
+        shell("ln -sfn "
+        "{input.read1} {output.read1} && "
+        "ln -sfn "
+        "{input.read2} {output.read2}")
