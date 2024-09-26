@@ -1,6 +1,7 @@
 #Import dependences python
 import subprocess
 import os
+import shutil
 import time
 from pathlib import Path
 import sys
@@ -16,6 +17,7 @@ import fcntl
 def get_date(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
+
 #Ecris la date d'un fichier ou dossier dans un fichier
 def write_date(path,date):
     with open(path,"w") as file:
@@ -30,7 +32,7 @@ def read_date(path):
 #Renvoie la date la plus courrente des dossiers.
 
 def directories_recent_data():
-    base = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+    base = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/","bam","reads"]
     date = None
     for directory in reads_directories:
@@ -44,7 +46,11 @@ def directories_recent_data():
 #Create directory
 def create_directory_if_not_exists(directory):
     if not os.path.exists(directory):
-        os.makedirs(directory,exsit_ok=True)
+        os.makedirs(directory,exist_ok=True)
+
+#Deletes a directory and its contents if is exists
+def delete_directory(directory):
+    shutil.rmtree(dictionnary, ignore_errors=True)
 
 #Lock un fichier
 def lock_file(file_path):
@@ -104,11 +110,11 @@ def check_value (var):
 def reads(wcs, read_suffix, filter_fastq=False):
     name = wcs.reads
     if (read_suffix == "1"):
-        wd = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/"
+        wd = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/"
     elif ( read_suffix == "2"):
-        wd = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/"
+        wd = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/"
     for file_ext in [".fastq",".fq"]:
-        for file_r in ["_" + read_suffix, "_r" + read_suffix, "_R" + read_suffix, "." + read_suffix, ".r" + read_suffix, "R" + read_suffix]:
+        for file_r in ["_" + read_suffix, "_r" + read_suffix, "_R" + read_suffix, "." + read_suffix, ".r" + read_suffix, ".R" + read_suffix]:
             file = wd + name + file_r +file_ext
             if (os.path.exists(file) or os.path.exists(file + ".gz")):
                 read = wd + name + file_r + file_ext + ".gz"
@@ -130,6 +136,8 @@ def get_id(file):
     return id
 
 
+
+
 #Checks the suffix and return ID without the suffix
 def check_suffix(id):
     ext_underscore = id.rsplit("_", 1)
@@ -141,30 +149,36 @@ def check_suffix(id):
         return ext_point[0]
     return None
 
+def csv_to_dict(csv):
+    df = pd.read_csv(csv,sep = "\t")
+    dictionnary = df.groupby("id")["path"].apply(list).to_dict()
+    return dictionnary
 
-
-
-#Returns a list of samples
+#Returns a dico of samples
 #Scans the directories in the samples directory and lists the 'fastq', '.fq' and 'bam' files.
 #Them extracts the identifiers of these files
-def list_samples():
-    base = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+def dict_samples_directory():
+    base = "/home/micro/Marco_Corentin/11-Snakemake/Rosa/data_input/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/"]
     format_directories = ["bam/", "reads/"]
-    samples = {"id": []}
+    samples = {}
 
     #Browse reads directories
     for directory in reads_directories:
         wd = os.path.abspath(base + directory)
         sample_list = os.listdir(os.path.abspath(wd))
-    
+
         #Browse file in directories
         for sample in sample_list:
             if ( ".fastq" in sample or ".fq" in sample ):
                 raw_id = get_id(sample)
                 id = check_suffix(raw_id)
                 if ( id is not None ):
-                    samples["id"].append(id)
+                    path = base + directory + sample
+                    if ( id not in samples ):
+                        samples[id] = [path]
+                    else :
+                        samples[id].append(path)
     
     #Browse formatting directories 
     for directory in format_directories:
@@ -175,13 +189,14 @@ def list_samples():
         for sample in sample_list:
             if ( ".fastq" in sample or ".fq" in sample or ".bam" in sample):
                 id = get_id(sample)
-                samples["id"].append(id)
+                path = base + directory + sample
+                samples[id] = path
     
     #Uniq ID
-    all_samples = set(samples["id"])
-    return all_samples
 
-samples_directory_date = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
+    return samples
+
+samples_directory_date = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
 mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
 
 if (not os.path.exists(samples_directory_date)):
@@ -198,13 +213,132 @@ if (os.path.exists(mergeFile)):
         write_date(samples_directory_date,current_directory_date)
 
 
+
+#Obtien le chemin d'entrée des dictionnaire fastq.
+def get_inputs(wildcards, mode):
+    id = wildcards.id.rsplit("/")[-1]
+    if ( mode == 0 ):
+        if ("reads1" in wildcards.id):
+            return fastq2[id][0]
+        elif ("reads2" in wildcards.id):
+            return fastq2[id][1]
+        elif ("reads" in wildcards.id):
+            return fastq[id] 
+    if ( mode == 1):
+        return fastq2[id][0] + ".gz"
+    if ( mode == 2):
+        return fastq2[id][1] + ".gz"
+    if ( mode == 3 ):
+        return fastq[id] + ".gz" 
+    if ( mode == 4 ):
+        return bam[id]
+
+
+#Temporaries
+
+tmp_directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+tmp_samples = tmp_directory + "samples/"
+tmp_bam = tmp_directory + "bam/"
+tmp_reads = tmp_samples + "reads/"
+tmp_reads1 = tmp_samples + "reads1/"
+tmp_reads2 = tmp_samples + "reads2/"
+create_directory_if_not_exists(tmp_directory)
+create_directory_if_not_exists(tmp_samples)
+create_directory_if_not_exists(tmp_reads)
+create_directory_if_not_exists(tmp_reads1)
+create_directory_if_not_exists(tmp_reads2)
+create_directory_if_not_exists(tmp_bam)
+
+#Remplit les différents dictionnaire fastq, fastq2 et bam et renvoie le liste des id des que le snakemake se lance normalement.
+def all_samples(inputs_dict, fastq2, fastq, bam):
+
+    fastq2_tmp = {}
+    fastq_tmp = {}
+    bam_tmp = {}
+
+    for key, item in inputs_dict.items():
+        if (len(item) == 2):
+                if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) ):
+                    if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
+                        read1 = tmp_reads1 + key + ".pre"
+                        read2 = tmp_reads2 + key + ".pre"
+                        fastq2_tmp[key] = [item[0],item[1]]
+                        os.system(f"touch {read1} {read2}")
+
+        elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
+            if( ".bam" in item[0]):
+                bam_file = tmp_bam + key + ".pre"
+                bam_tmp[key] = item[0]
+                os.system(f"touch {bam_file}")
+            elif ( ".fastq" in item[0] or ".fq" in item[0]):
+                read = tmp_read + key + ".pre"
+                fastq_tmp[key] = item[0]
+                os.system(f"touch {read}")
+ 
+    fastq = fastq_tmp
+    fastq2 = fastq2_tmp
+    bam = bam_tmp
+    all_samples = set(list(fastq_tmp.keys()) + list(fastq2_tmp.keys()) + list(bam_tmp.keys()))
+
+    return all_samples
+
+
 #Variables
+
+fastq2 = {}
+fastq = {}
+bam = {}
+
+
+csv = config["DATA_INPUTS"]["INPUTS_FILE"]
+if(check_value(csv)) :
+
+    dict_csv = csv_to_dict(csv)
+    all_samples = all_samples(dict_csv, fastq2, fastq, bam)
+
+
+else:
+    dict_directory = dict_samples_directory()
+    all_samples = all_samples(dict_directory, fastq2, fastq, bam)
+
+
+
+
+
+#     for key, item in dictionnary.items():
+#         if (len(item) == 2):
+#             if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) ):
+#                 if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
+#                     read1 = tmp_reads1 + key + ".pre"
+#                     read2 = tmp_reads2 + key + ".pre"
+#                     fastq2[key] = [item[0],item[1]]
+#                     os.system(f"touch {read1} {read2}")
+
+
+#         elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
+#             if( ".bam" in item[0]):
+#                 bam_file = tmp_bam + key + ".pre"
+#                 bam[key] = item[0]
+#                 os.system(f"touch {bam_file}")
+#             elif ( ".fastq" in item[0] or ".fq" in item[0]):
+#                 read = tmp_read + key + ".pre"
+#                 fastq[key] = item[0]
+#                 os.system(f"touch {read}")
+
+#     all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
+
+#     
+
+# else :
+#     all_samples = list_samples()
+
+#     include: "modules/formatting_directories.smk"
+
+
 summary_file = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
 if(os.path.exists(summary_file)) :
     df_summary = pd.read_csv(summary_file,sep="\t", header=0)
     ids = df_summary["id"].values.tolist()
-
-all_samples = list_samples()
 
 
 #Obtenir l'heure actuelle
@@ -216,8 +350,7 @@ unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
 
 
 #Calling Snakemake module
-
-include: "modules/formatting.smk"
+include: "modules/formatting_file.smk"
 include: "modules/quality_control_fastq.smk"
 include: "modules/hisat2.smk"
 include: "modules/featureCounts.smk"
@@ -230,10 +363,13 @@ include: "modules/featureCounts.smk"
 
 rule all:
     input:
-        # read1 =expand(os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
-        # read2 =expand(os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
+        # read1 =expand(os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
+        # read2 =expand(os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
         #bam = expand(config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
-        directory_data = directory(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/"),
-        html =config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
-        directory_data2 = directory(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/"),
-        html2 = config["DATA_INPUT"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html"
+        directory_data = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/",
+        html =config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
+        directory_data2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/",
+        html2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html"
+
+
+#delete_directory(tmp_directory)
