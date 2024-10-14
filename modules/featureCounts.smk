@@ -3,7 +3,7 @@ from scripts import merge_counts as mc
 rule featureCounts:
     input:
         bai = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",
-        annotation = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["DATA_INPUT"]["ANNOTATION"]
+        annotation = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["DATA_INPUTS"]["ANNOTATION"]
 
     output:
         summaryFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/{reads}.counts.summary",

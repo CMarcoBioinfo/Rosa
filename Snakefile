@@ -50,7 +50,7 @@ def create_directory_if_not_exists(directory):
 
 #Deletes a directory and its contents if is exists
 def delete_directory(directory):
-    shutil.rmtree(dictionnary, ignore_errors=True)
+    shutil.rmtree(directory, ignore_errors=True)
 
 #Lock un fichier
 def lock_file(file_path):
@@ -135,6 +135,12 @@ def get_id(file):
         id = file.rsplit(".", 1)[0]
     return id
 
+def is_gz(file):
+    if file.endswith(".gz"):
+        return True
+    else:
+        return False
+
 
 
 
@@ -158,7 +164,7 @@ def csv_to_dict(csv):
 #Scans the directories in the samples directory and lists the 'fastq', '.fq' and 'bam' files.
 #Them extracts the identifiers of these files
 def dict_samples_directory():
-    base = "/home/micro/Marco_Corentin/11-Snakemake/Rosa/data_input/1-raw_data/samples/"
+    base = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/"]
     format_directories = ["bam/", "reads/"]
     samples = {}
@@ -217,22 +223,28 @@ if (os.path.exists(mergeFile)):
 #Obtien le chemin d'entrée des dictionnaire fastq.
 def get_inputs(wildcards, mode):
     id = wildcards.id.rsplit("/")[-1]
-    if ( mode == 0 ):
-        if ("reads1" in wildcards.id):
-            return fastq2[id][0]
-        elif ("reads2" in wildcards.id):
-            return fastq2[id][1]
-        elif ("reads" in wildcards.id):
-            return fastq[id] 
-    if ( mode == 1):
-        return fastq2[id][0] + ".gz"
-    if ( mode == 2):
-        return fastq2[id][1] + ".gz"
-    if ( mode == 3 ):
-        return fastq[id] + ".gz" 
     if ( mode == 4 ):
         return bam[id]
-
+    else:
+        if ( mode == 0 ):
+            if ("reads1" in wildcards.id):
+                return str(fastq2[id][0])
+            elif ("reads2" in wildcards.id):
+                return str(fastq2[id][1])
+            elif ("reads" in wildcards.id):
+                return str(fastq[id])
+        if ( mode == 1):
+            file = str(fastq2[id][0])
+        elif ( mode == 2):
+            file = str(fastq2[id][1])
+        elif ( mode == 3 ):
+            file = str(fastq[id])
+        if file.endswith(".gz"):
+            return file 
+        elif os.path.exists(file):
+            return file
+        else :
+            return file + ".gz"
 
 #Temporaries
 
@@ -251,35 +263,27 @@ create_directory_if_not_exists(tmp_bam)
 
 #Remplit les différents dictionnaire fastq, fastq2 et bam et renvoie le liste des id des que le snakemake se lance normalement.
 def all_samples(inputs_dict, fastq2, fastq, bam):
-
-    fastq2_tmp = {}
-    fastq_tmp = {}
-    bam_tmp = {}
-
     for key, item in inputs_dict.items():
         if (len(item) == 2):
-                if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) ):
-                    if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
-                        read1 = tmp_reads1 + key + ".pre"
-                        read2 = tmp_reads2 + key + ".pre"
-                        fastq2_tmp[key] = [item[0],item[1]]
-                        os.system(f"touch {read1} {read2}")
+            if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0]) and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1])) ):
+                if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
+                    read1 = str(tmp_reads1) + str(key) + ".pre"
+                    read2 = str(tmp_reads2) + str(key) + ".pre"
+                    fastq2[str(key)] = [item[0],item[1]]
+                    os.system(f"touch {read1} {read2}")
 
         elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
             if( ".bam" in item[0]):
-                bam_file = tmp_bam + key + ".pre"
-                bam_tmp[key] = item[0]
+                bam_file = str(tmp_bam) + str(key) + ".pre"
+                bam[str(key)] = item[0]
                 os.system(f"touch {bam_file}")
             elif ( ".fastq" in item[0] or ".fq" in item[0]):
-                read = tmp_read + key + ".pre"
-                fastq_tmp[key] = item[0]
+                read = str(tmp_reads) + str(key) + ".pre"
+                fastq[str(key)] = item[0]
                 os.system(f"touch {read}")
  
-    fastq = fastq_tmp
-    fastq2 = fastq2_tmp
-    bam = bam_tmp
-    all_samples = set(list(fastq_tmp.keys()) + list(fastq2_tmp.keys()) + list(bam_tmp.keys()))
 
+    all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
     return all_samples
 
 
@@ -300,9 +304,6 @@ if(check_value(csv)) :
 else:
     dict_directory = dict_samples_directory()
     all_samples = all_samples(dict_directory, fastq2, fastq, bam)
-
-
-
 
 
 #     for key, item in dictionnary.items():
@@ -353,13 +354,13 @@ unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
 include: "modules/formatting_file.smk"
 include: "modules/quality_control_fastq.smk"
 include: "modules/hisat2.smk"
+include: "modules/quality_control_bam.smk"
 include: "modules/featureCounts.smk"
 
 
 # rule all:
 #     input:
 #         mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
-
 
 rule all:
     input:
@@ -369,7 +370,16 @@ rule all:
         directory_data = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/",
         html =config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
         directory_data2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/",
-        html2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html"
+        html2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html",
+        directory_data_bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_bam_" + unique_id + "_data/",
+        html_bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_bam_" + unique_id + ".html",
 
+rule delete_tmp:
+    input: 
+        rules.all.output
 
-#delete_directory(tmp_directory)
+    params:
+        tmp_directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+    
+    run:
+        delete_directory(tmp_directory)

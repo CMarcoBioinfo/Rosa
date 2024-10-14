@@ -19,22 +19,22 @@
 #Index reference
 rule hisat_index:
     input:
-        reference = os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/1-raw_data/reference/" + config["DATA_INPUT"]["GENOME"])
+        reference = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/reference/" + config["DATA_INPUTS"]["GENOME"])
 
     output:
-        directory = directory(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0]),
-        reference = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0] + "/" + config["DATA_INPUT"]["GENOME"]
+        directory = directory(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0]),
+        reference = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "/" + config["DATA_INPUTS"]["GENOME"]
         
     params:
         hisat2 = config["DEPENDANCES"]["HISAT2"],
-        name_genome = "/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0]
+        name_genome = "/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0]
         
     threads:
         config["PARAMS"]["HISAT2"]["THREADS"]
     
     log:
-        out = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_sort/"+ config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0] +".stdout.log",
-        err = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_sort/"+ config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0] +".stderr.log"
+        out = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/hisat_index/"+ config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] +".stdout.log",
+        err = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/hisat_index/"+ config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] +".stderr.log"
 
 
     run:
@@ -50,12 +50,12 @@ rule hisat_index:
 #Align reads to reference
 rule hisat_align:
     input:
-        directory = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0],
-        reference = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0] + "/" + config["DATA_INPUT"]["GENOME"],
+        directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0],
+        reference = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "/" + config["DATA_INPUTS"]["GENOME"],
         # reads1 = lambda wcs: reads(wcs, "1"),
         # reads2 =  lambda wcs: reads(wcs, "2")
-        reads1 = os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),
-        reads2 = os.path.abspath(config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz")
+        read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_1.fastq.gz"),
+        read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_2.fastq.gz")
 
     output:
         bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",
@@ -63,13 +63,13 @@ rule hisat_align:
 
 
     params:
-        name_genome = "/" + config["DATA_INPUT"]["GENOME"].rsplit(".",1)[0],
+        name_genome = "/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0],
         hisat2 = config["DEPENDANCES"]["HISAT2"],
         samtools = config["DEPENDANCES"]["SAMTOOLS"]
     
     log:
-        out = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/hisat2_align/{reads}.stdout.log",
-        err = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/hisat2_align/{reads}.stderr.log"
+        out = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/hisat2_align/{reads}.stdout.log",
+        err = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/hisat2_align/{reads}.stderr.log"
 
     threads:
         config["PARAMS"]["HISAT2"]["THREADS"]
@@ -79,8 +79,8 @@ rule hisat_align:
         "-p {threads} "
         "--summary-file {output.summary} "
         "-x {input.directory}{params.name_genome} "
-        "-1 {input.reads1} "
-        "-2 {input.reads2} | "
+        "-1 {input.read1} "
+        "-2 {input.read2} | "
         "{params.samtools} sort "
         "-@ {threads} "
         "-o {output.bam} - > {log.out} 2> {log.err}"
@@ -100,8 +100,8 @@ rule samtools_index:
         samtools = config["DEPENDANCES"]["SAMTOOLS"]
     
     log:
-        out = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_index/{reads}.stdout.log",
-        err = config["DATA_INPUT"]["WORKING_DIRECTORY"] + "/log/samtools_index/{reads}.stderr.log"
+        out = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_index/{reads}.stdout.log",
+        err = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_index/{reads}.stderr.log"
     
     priority: 1 
     
