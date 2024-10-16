@@ -54,8 +54,8 @@ rule hisat_align:
         reference = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "/" + config["DATA_INPUTS"]["GENOME"],
         # reads1 = lambda wcs: reads(wcs, "1"),
         # reads2 =  lambda wcs: reads(wcs, "2")
-        read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_1.fastq.gz"),
-        read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_2.fastq.gz")
+        trimmed_read1 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_1.trimmed.fastq.gz",
+        trimmed_read2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_2.trimmed.fastq.gz"
 
     output:
         bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",

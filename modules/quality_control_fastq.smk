@@ -27,42 +27,6 @@ rule fastqc_raw:
         "{input.read} > {log.out} 2> {log.err}")
 
 
-#Trimming adaptator from raw reads
-rule fastp_trimming:
-    input:
-        read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_1.fastq.gz"),
-        read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_2.fastq.gz")
-
-    output:
-        trimmed_read1 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_1.trimmed.fastq.gz",
-        trimmed_read2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_2.trimmed.fastq.gz",
-        html = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.html",
-        json = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.json"
-
-    params:
-        fastp = config["DEPENDANCES"]["FASTP"],
-        length = config["PARAMS"]["FASTP"]["LENGTH"],
-        directory_trimmed = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/",
-        directory_fastp = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/"
-
-
-    threads:
-        config["PARAMS"]["FASTP"]["THREADS"]
-
-    run:
-        create_directory_if_not_exists(params["directory_trimmed"])
-        create_directory_if_not_exists(params["directory_fastp"])
-        shell("{params.fastp} "
-        "--thread {threads} "
-        "--length_required {params.length} "
-        "--detect_adapter_for_pe "
-        "--in1 {input.read1} "
-        "--in2 {input.read2} "
-        "--out1 {output.trimmed_read1} "
-        "--out2 {output.trimmed_read2} "
-        "--html {output.html} "
-        "--json {output.json} ")
-
 
 #Quality controle of trimmed reads
 rule fastqc_trimmed:
