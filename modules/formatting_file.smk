@@ -2,17 +2,17 @@
 rule compress_fastq:
     input:
         read = lambda wildcards: get_inputs(wildcards,0),
-        preprocess = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/{id}.pre"
+        preprocess = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/{id}.pre"
 
 
     output:
-        process = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/{id}.pro"
+        process = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/{id}.pro"
 
     
     params:
-        directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/",
+        directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/",
         id = lambda wildcards: wildcards.id,
-        pigz = config["DEPENDANCES"]["PIGZ"]
+        pigz = config["DEPENDANCES"]["FORMATING"]["PIGZ"]
 
     threads: 
         config["PARAMS"]["COMPRESS"]["THREADS"]
@@ -34,16 +34,16 @@ rule compress_fastq:
 # rule deinterleave_fastq:
 #     input:
 #         read = lambda wildcards: get_inputs(wildcards,3),
-#         process = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads/{id}.pro"
+#         process = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads/{id}.pro"
     
 #     output:
-#         read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
-#         read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
+#         read1 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
+#         read2 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
 
 #     params:
 #         id = lambda wildcards: wildcards.id,
-#         pigz = config["DEPENDANCES"]["PIGZ"],
-#         directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
+#         pigz = config["DEPENDANCES"]["FORMATING"]["PIGZ"],
+#         directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
 
 #     priority: 6
     
@@ -63,25 +63,25 @@ rule compress_fastq:
 # rule samtools_sort:
 #     input:
 #         bam = lambda wildcards: get_inputs(wildcards,4),
-#         preprocess = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pre"
+#         preprocess = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pre"
 
     
 #     output:
-#         bam_sort = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam/{id}_sorted.bam",
-#         process = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pro"
+#         bam_sort = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam/{id}_sorted.bam",
+#         process = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pro"
 
     
 #     params:
 #         id = lambda wildcards: wildcards.id,
 #         samtools = config["DEPENDANCES"]["SAMTOOLS"],
-#         directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam"
+#         directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam"
 
 #     threads: 
 #         config["PARAMS"]["SAMTOOLS"]["THREADS"],
 
 #     log:
-#         out = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{id}.stout.log",
-#         err = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{id}.stderr.log"
+#         out = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{id}.stout.log",
+#         err = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/log/samtools_sort/{id}.stderr.log"
     
 
 #     run:
@@ -95,17 +95,17 @@ rule compress_fastq:
 # #Converts a sorted BAM file into two separate FASTQ files.
 # rule samtools_fastq:
 #     input: 
-#         bam_sort = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam/{id}_sorted.bam",
-#         process = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pro"
+#         bam_sort = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_raw/bam/{id}_sorted.bam",
+#         process = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/bam/{id}.pro"
 
     
 #     output:
-#         read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
-#         read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
+#         read1 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
+#         read2 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
     
 #     params:
 #         samtools = config["DEPENDANCES"]["SAMTOOLS"],
-#         directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
+#         directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
     
 #     threads: 
 #         config["PARAMS"]["SAMTOOLS"]["THREADS"]
@@ -125,17 +125,17 @@ rule processed_fastq:
     input:
         read1 = lambda wildcards: get_inputs(wildcards,1),
         read2 =  lambda wildcards: get_inputs(wildcards,2),
-        process1 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads1/{id}.pro",
-        process2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads2/{id}.pro"
+        process1 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads1/{id}.pro",
+        process2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/samples/reads2/{id}.pro"
 
     output:
-        read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
-        read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
+        read1 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_1.fastq.gz"),
+        read2 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{id}_2.fastq.gz")
 
     
     params:
         id = lambda wildcards: wildcards.id,
-        directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
+        directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/"
 
     priority: 5
 
@@ -154,20 +154,20 @@ rule processed_fastq:
 #Trimming adaptator from raw reads
 rule fastp_trimming:
     input:
-        read1 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_1.fastq.gz"),
-        read2 = os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_2.fastq.gz")
+        read1 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_1.fastq.gz"),
+        read2 = os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_process/{reads}_2.fastq.gz")
 
     output:
-        trimmed_read1 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_1.trimmed.fastq.gz",
-        trimmed_read2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_2.trimmed.fastq.gz",
-        html = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.html",
-        json = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.json"
+        trimmed_read1 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_1.trimmed.fastq.gz",
+        trimmed_read2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/{reads}_2.trimmed.fastq.gz",
+        html = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.html",
+        json = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/{reads}_fastp.json"
 
     params:
-        fastp = config["DEPENDANCES"]["FASTP"],
+        fastp = config["DEPENDANCES"]["FORMATING"]["FASTP"],
         length = config["PARAMS"]["FASTP"]["LENGTH"],
-        directory_trimmed = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/",
-        directory_fastp = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/"
+        directory_trimmed = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples_trimmed/",
+        directory_fastp = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/fastp/"
 
 
     threads:
@@ -190,14 +190,14 @@ rule fastp_trimming:
 
 rule gtf2bed:
     input:
-        gtf = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["DATA_INPUTS"]["ANNOTATION"]
+        gtf = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["GENERAL"]["DATA_INPUTS"]["ANNOTATION"]
 
     output:
-        bed = (config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed",
-        bed3 = (config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed3"
+        bed = (config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["GENERAL"]["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed",
+        bed3 = (config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["GENERAL"]["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed3"
 
     params:
-        gtf2bed = config["DEPENDANCES"]["PIGZ"]
+        gtf2bed = config["DEPENDANCES"]["FORMATING"]["PIGZ"]
 
     shell:
         "gtf2bed " 

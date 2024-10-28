@@ -1,6 +1,7 @@
 #Import dependences python
 import subprocess
 import os
+import math
 import shutil
 import time
 from pathlib import Path
@@ -32,7 +33,7 @@ def read_date(path):
 #Renvoie la date la plus courrente des dossiers.
 
 def directories_recent_data():
-    base = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+    base = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/","bam","reads"]
     date = None
     for directory in reads_directories:
@@ -67,7 +68,7 @@ def unclock_file(lock_file):
 
 #Ajoute un sample au fichier metadata
 def add_file(name,path_bam,path_counts):
-    metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+    metadata = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
     file_lock= lock_file(metadata)
     if not os.path.exists(metadata) or os.path.getsize(metadata) == 0:
         df = pd.DataFrame(columns=["id", "path_bam", "path_counts"])
@@ -83,7 +84,7 @@ def add_file(name,path_bam,path_counts):
 
 #Return list of available count files
 def get_available_files():
-    metadata = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+    metadata = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
     if os.path.exists(metadata):
         df = pd.read_csv(metadata, sep = "\t")
         files = df["path"].tolist()
@@ -110,9 +111,9 @@ def check_value (var):
 def reads(wcs, read_suffix, filter_fastq=False):
     name = wcs.reads
     if (read_suffix == "1"):
-        wd = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/"
+        wd = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/"
     elif ( read_suffix == "2"):
-        wd = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/"
+        wd = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/"
     for file_ext in [".fastq",".fq"]:
         for file_r in ["_" + read_suffix, "_r" + read_suffix, "_R" + read_suffix, "." + read_suffix, ".r" + read_suffix, ".R" + read_suffix]:
             file = wd + name + file_r +file_ext
@@ -164,7 +165,7 @@ def csv_to_dict(csv):
 #Scans the directories in the samples directory and lists the 'fastq', '.fq' and 'bam' files.
 #Them extracts the identifiers of these files
 def dict_samples_directory():
-    base = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+    base = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/"]
     format_directories = ["bam/", "reads/"]
     samples = {}
@@ -202,8 +203,8 @@ def dict_samples_directory():
 
     return samples
 
-samples_directory_date = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
-mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
+samples_directory_date = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
+mergeFile = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/merge.counts"
 
 if (not os.path.exists(samples_directory_date)):
     initial_directory_date = directories_recent_data()
@@ -248,7 +249,7 @@ def get_inputs(wildcards, mode):
 
 #Temporaries
 
-tmp_directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+tmp_directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
 tmp_samples = tmp_directory + "samples/"
 tmp_bam = tmp_directory + "bam/"
 tmp_reads = tmp_samples + "reads/"
@@ -294,7 +295,7 @@ fastq = {}
 bam = {}
 
 
-csv = config["DATA_INPUTS"]["INPUTS_FILE"]
+csv = config["GENERAL"]["DATA_INPUTS"]["SAMPLES_FILE"]
 if(check_value(csv)) :
 
     dict_csv = csv_to_dict(csv)
@@ -336,7 +337,7 @@ else:
 #     include: "modules/formatting_directories.smk"
 
 
-summary_file = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/sample_names.txt"
+summary_file = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
 if(os.path.exists(summary_file)) :
     df_summary = pd.read_csv(summary_file,sep="\t", header=0)
     ids = df_summary["id"].values.tolist()
@@ -353,33 +354,40 @@ unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
 #Calling Snakemake module
 include: "modules/formatting_file.smk"
 include: "modules/quality_control_fastq.smk"
-include: "modules/hisat2.smk"
+include: "modules/spliceLaucher.smk"
+#include: "modules/featureCounts.smk"
+#include: "modules/hisat2.smk"
 include: "modules/quality_control_bam.smk"
-include: "modules/featureCounts.smk"
 
 
 # rule all:
 #     input:
-#         mergeFile = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/2-Counts/merge.counts"
+#         mergeFile = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/merge.counts"
+
+# rule all:
+#     input:
+#         # read1 =expand(os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
+#         # read2 =expand(os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
+#         #bam = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
+#         directory_data = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/",
+#         html =config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
+#         directory_data2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/",
+#         html2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html",
+#         directory_data_bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_bam_" + unique_id + "_data/",
+#         html_bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_bam_" + unique_id + ".html",
+
 
 rule all:
     input:
-        # read1 =expand(os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
-        # read2 =expand(os.path.abspath(config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
-        #bam = expand(config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
-        directory_data = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/",
-        html =config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
-        directory_data2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/",
-        html2 = config["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html",
-        directory_data_bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"] +"_bam_" + unique_id + "_data/",
-        html_bam = config["PARAMS"]["GENERAL"]["WORKING_DIRECTORY"] + config["PARAMS"]["GENERAL"]["PREFIX"] + "/quality_control/multiqc/" + config["PARAMS"]["GENERAL"]["PREFIX"]  + "_bam_" + unique_id + ".html",
-
+        reference = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"],
+        SA = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/SA",
+        SAindex = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/SAindex"
 rule delete_tmp:
     input: 
         rules.all.output
 
     params:
-        tmp_directory = config["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+        tmp_directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
     
     run:
         delete_directory(tmp_directory)

@@ -2,25 +2,44 @@
 # Parameter configuration file
 
 DEPENDANCES:
-    HISAT2:  "hisat2" # [required] path to hisat2 executable
-    SAMTOOLS: "samtools" # [required] path to samtools executable
-    PIGZ: "pigz" # [required] path to pigz executable
-    FASTQC: "fastqc" # [required] path to fastqc executable
-    FASTP: "fastp" # [required] path to fastqc executable
-    KMEREXPLOR: "kmerexplor" # [required] path to kermerExplorer executable
-    MULTIQC: "multiqc" # [required] path to multiqc executable
-    FEATURECOUNTS: "featureCounts" # [required] path to featureCounts executable
+    FORMATING:
+        PIGZ: "pigz" # [required] path to pigz executable
+        FASTP: "fastp" # [required] path to fastqc executable
+        GTF2BED: "gtfbed" # [required] path to fastqc executable
+    QC:
+        FASTQC: "fastqc" # [required] path to fastqc executable
+        KMEREXPLOR: "kmerexplor" # [required] path to kermerExplorer executable
+        MULTIQC: "multiqc" # [required] path to multiqc executable
+    MAPPING:
+        HISAT2:  "hisat2" # [required] path to hisat2 executable
+        STAR : "STAR" # [required] path to STAR
+        SAMTOOLS: "samtools" # [required] path to samtools executable
+    ANALYSES:
+        SPLICELAUCHER: "/home/micro/Marco_Corentin/11-Snakemake/Rosa/SpliceLauncher" # [required] path to directory of spliceLaucher
+        FEATURECOUNTS: "featureCounts" # [required] path to featureCounts executable
 
-DATA_INPUTS:
-    INPUTS_FILE: "data_inputs/metadata/library_08_2024.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
-    WORKING_DIRECTORY: "data_inputs"  # [required] Path to input data tree. Default folder is data_input
-    GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] Name of reference file in working_directory/reference/
-    ANNOTATION: "GRCh37.p13.SLA.chr.gtf" # [required] Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
+GENERAL:
+    DATA_INPUTS:
+        SAMPLES_FILE: "data_inputs/metadata/library_12_2023.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
+        WORKING_DIRECTORY: "data_inputs"  # [required] Path to input data tree. Default folder is data_input
+        GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] Name of reference file in working_directory/reference/
+        ANNOTATION: "GRCh37.p13.SLA.chr.gtf" # [required] Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
+        GFF3: "gencode.v19.annotation.gff3"
+        MANE: "MANE.to.splicelauncher.txt"
+    DATA_OUTPUTS:
+        WORKING_DIRECTORY: ""  # [optional] Path to working directory. Default: in current directory
+        PREFIX: "run_library_trimmed_12_2023"  # [required] Name of run
+
+
+SPLICELAUCHER:
+    INDEX:
+        SJDBOVERHANG: "" # [optional] (int) minimum overhang (i.e. block size) for annotated (sjdb) spliced alignments. Default: 99
+        GENOMESASPARSED: "" # [optional] (int) suffux array sparsity, i.e. distance between indices: use bigger numbers to decrease needed RAM at the cost of mapping speed reduction. 
+        RAM: "" # [optional] (int) maximum avalable RAM (bytes) for genome genration 
+        GENOMESAINDEXNBASES: "12" # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
+        THREADS: ""
 
 PARAMS:
-    GENERAL:
-        WORKING_DIRECTORY: ""  # [optional] Path to working directory. Default: in current directory
-        PREFIX: "run_library_08_2024"  # [required] Name of run
     FILTERFASTQ:
         USE:  0 #[required] 0: Fastq is not filtered (fastp). 1: Fastq is filtered (fastp)
         THREADS: 1  # [required] Maximum number of threads the rule can use
@@ -43,3 +62,6 @@ PARAMS:
         THREADS: 1 # [required] Maximum number of threads the rule can use
     MERGING:
         THREADS: 2 # [required] Maximum number of threads the rule can use
+    STAR:
+        THREADS: 3
+
