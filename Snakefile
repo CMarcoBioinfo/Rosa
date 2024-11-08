@@ -11,38 +11,80 @@ import datetime
 import time
 from inotify_simple import INotify, flags
 import fcntl
-
-#Function use
-
-#Obtient la date de modification d'un path
-def get_date(path):
-    return datetime.datetime.fromtimestamp(os.path.getmtime(path))
+import gc
 
 
-#Ecris la date d'un fichier ou dossier dans un fichier
-def write_date(path,date):
-    with open(path,"w") as file:
-        file.write(date.isoformat())
+if "SNAKEMAKE_PRINT" not in os.environ:
+    os.environ["SNAKEMAKE_PRINT"] = "false"
 
-#Lire le fichier de date
-def read_date(path):
-    with open(path, "r") as file:
-        date_str = file.read().strip()
-        return datetime.datetime.fromisoformat(date_str)
+def print_once(message):
+    if os.getenv("SNAKEMAKE_PRINT") == "false":
+        print(message)
+
+
+    
+
+#Obtenir l'heure actuelle
+if os.getenv("SNAKEMAKE_PRINT") == "false":
+    current_time = time.localtime()
+     #Formater la date et l'heure comme identifiant unique
+    unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
+    os.environ["UNIQUE_ID"] = unique_id
+
+unique_id = os.environ["UNIQUE_ID"]
+
+
+
+#Path data
+print_once("Vérification des paramètres")
+
+working_directory = config["GENERAL"]["WORKING_DIRECTORY"]
+if not working_directory:
+    working_directory = "data"
+print_once(f"Working directory : {working_directory} ...... OK")
+
+prefix = config["GENERAL"]["PREFIX"]
+if not prefix:
+    prefix = "run_" + unique_id
+print_once(f"Prefix: {prefix} ...... OK")
+
+path_qc = working_directory + "/3-Quality_control/"
+path_results = working_directory + "/4-Results/" + prefix
+
+
+# #Function use
+# #Obtient la date de modification d'un path
+# def get_date(path):
+#     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
+
+
+# #Ecris la date d'un fichier ou dossier dans un fichier
+# def write_date(path,date):
+#     with open(path,"w") as file:
+#         file.write(date.isoformat())
+
+# #Lire le fichier de date
+# def read_date(path):
+#     with open(path, "r") as file:
+#         date_str = file.read().strip()
+#         return datetime.datetime.fromisoformat(date_str)
 
 #Renvoie la date la plus courrente des dossiers.
 
-def directories_recent_data():
-    base = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
-    reads_directories = ["reads1/","reads2/","bam","reads"]
-    date = None
-    for directory in reads_directories:
-        wd = os.path.abspath(base + directory)
-        tmp_date = get_date(wd)
-        if date is None or tmp_date > date:
-            date = tmp_date
-    return date
+# def directories_recent_data():
+#     base = working_directory + "/1-raw_data/samples/"
+#     reads_directories = ["reads1/","reads2/","bam","reads"]
+#     date = None
+#     for directory in reads_directories:
+#         wd = os.path.abspath(base + directory)
+#         tmp_date = get_date(wd)
+#         if date is None or tmp_date > date:
+#             date = tmp_date
+#     return date
 
+
+def memory_release():
+    gc.collect()
 
 #Create directory
 def create_directory_if_not_exists(directory):
@@ -68,7 +110,7 @@ def unclock_file(lock_file):
 
 #Ajoute un sample au fichier metadata
 def add_file(name,path_bam,path_counts):
-    metadata = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
+    metadata = working_directory + prefix + "/2-Counts/sample_names.txt"
     file_lock= lock_file(metadata)
     if not os.path.exists(metadata) or os.path.getsize(metadata) == 0:
         df = pd.DataFrame(columns=["id", "path_bam", "path_counts"])
@@ -84,7 +126,7 @@ def add_file(name,path_bam,path_counts):
 
 #Return list of available count files
 def get_available_files():
-    metadata = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
+    metadata = working_directory + prefix + "/2-Counts/sample_names.txt"
     if os.path.exists(metadata):
         df = pd.read_csv(metadata, sep = "\t")
         files = df["path"].tolist()
@@ -93,9 +135,7 @@ def get_available_files():
     return files
 
 
-
-
-#Check if varaible is None or empty
+#Check if variable is None or empty
 def check_value (var):
     if var is None:
         return False
@@ -111,9 +151,9 @@ def check_value (var):
 def reads(wcs, read_suffix, filter_fastq=False):
     name = wcs.reads
     if (read_suffix == "1"):
-        wd = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/"
+        wd = working_directory + "/1-raw_data/samples/reads1/"
     elif ( read_suffix == "2"):
-        wd = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads2/"
+        wd = working_directory + "/1-raw_data/samples/reads2/"
     for file_ext in [".fastq",".fq"]:
         for file_r in ["_" + read_suffix, "_r" + read_suffix, "_R" + read_suffix, "." + read_suffix, ".r" + read_suffix, ".R" + read_suffix]:
             file = wd + name + file_r +file_ext
@@ -142,8 +182,14 @@ def is_gz(file):
     else:
         return False
 
-
-
+#Vérifie si l'éxcutable existe
+def check_excutable(executable): 
+    if shutil.which(executable) is None:
+        print_once(f"Erreur : L'exécutable {executable} est manquant.")
+        sys.exit(1)
+    else : 
+        print_once(f"{executable} ...... OK")
+    
 
 #Checks the suffix and return ID without the suffix
 def check_suffix(id):
@@ -165,7 +211,7 @@ def csv_to_dict(csv):
 #Scans the directories in the samples directory and lists the 'fastq', '.fq' and 'bam' files.
 #Them extracts the identifiers of these files
 def dict_samples_directory():
-    base = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/"
+    base = working_directory + "/1-raw_data/samples/"
     reads_directories = ["reads1/","reads2/"]
     format_directories = ["bam/", "reads/"]
     samples = {}
@@ -203,21 +249,21 @@ def dict_samples_directory():
 
     return samples
 
-samples_directory_date = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/.samples.date"
-mergeFile = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/merge.counts"
+# samples_directory_date = working_directory + "/1-raw_data/samples/.samples.date"
+# mergeFile = working_directory + prefix + "/2-Counts/merge.counts"
 
-if (not os.path.exists(samples_directory_date)):
-    initial_directory_date = directories_recent_data()
-    write_date(samples_directory_date,initial_directory_date)
-else:
-    initial_directory_date = read_date(samples_directory_date)
+# if (not os.path.exists(samples_directory_date)):
+#     initial_directory_date = directories_recent_data()
+#     write_date(samples_directory_date,initial_directory_date)
+# else:
+#     initial_directory_date = read_date(samples_directory_date)
 
-current_directory_date = directories_recent_data()
-if (os.path.exists(mergeFile)):
-    if (current_directory_date.timestamp() != initial_directory_date.timestamp()):
-        current_time = time.time()
-        os.utime(mergeFile,(current_time, current_time))
-        write_date(samples_directory_date,current_directory_date)
+# current_directory_date = directories_recent_data()
+# if (os.path.exists(mergeFile)):
+#     if (current_directory_date.timestamp() != initial_directory_date.timestamp()):
+#         current_time = time.time()
+#         os.utime(mergeFile,(current_time, current_time))
+#         write_date(samples_directory_date,current_directory_date)
 
 
 
@@ -229,11 +275,11 @@ def get_inputs(wildcards, mode):
     else:
         if ( mode == 0 ):
             if ("reads1" in wildcards.id):
-                return str(fastq2[id][0])
+                file = str(fastq2[id][0])
             elif ("reads2" in wildcards.id):
-                return str(fastq2[id][1])
+                file = str(fastq2[id][1])
             elif ("reads" in wildcards.id):
-                return str(fastq[id])
+                file = str(fastq[id])
         if ( mode == 1):
             file = str(fastq2[id][0])
         elif ( mode == 2):
@@ -249,7 +295,7 @@ def get_inputs(wildcards, mode):
 
 #Temporaries
 
-tmp_directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+tmp_directory = working_directory + "/.tmp/"
 tmp_samples = tmp_directory + "samples/"
 tmp_bam = tmp_directory + "bam/"
 tmp_reads = tmp_samples + "reads/"
@@ -263,25 +309,42 @@ create_directory_if_not_exists(tmp_reads2)
 create_directory_if_not_exists(tmp_bam)
 
 #Remplit les différents dictionnaire fastq, fastq2 et bam et renvoie le liste des id des que le snakemake se lance normalement.
-def all_samples(inputs_dict, fastq2, fastq, bam):
+def all_samples(inputs_dict, fastq2, fastq, bam, length_fastp = None):
     for key, item in inputs_dict.items():
         if (len(item) == 2):
             if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0]) and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1])) ):
                 if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
-                    read1 = str(tmp_reads1) + str(key) + ".pre"
-                    read2 = str(tmp_reads2) + str(key) + ".pre"
-                    fastq2[str(key)] = [item[0],item[1]]
-                    os.system(f"touch {read1} {read2}")
+                    if (length_fastp) :
+                        name_key = str(key) + "." + str(length_fastp) + "bp"
+                    else :
+                        name_key = str(key)
+                    read1 = str(tmp_reads1) + name_key + ".pre"
+                    read2 = str(tmp_reads2) + name_key + ".pre"
+                    fastq2[name_key] = [item[0],item[1]]
+                    if (not os.path.exists(read1)):
+                        os.system(f"touch {read1}")
+                    if (not os.path.exists(read2)):
+                        os.system(f"touch {read2}")
 
         elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
             if( ".bam" in item[0]):
-                bam_file = str(tmp_bam) + str(key) + ".pre"
-                bam[str(key)] = item[0]
-                os.system(f"touch {bam_file}")
+                if (length_fastp) :
+                    name_key = str(key) + "." + str(length_fastp) + "bp"
+                else :
+                    name_key = str(key)
+                bam_file = str(tmp_bam) + name_key + ".pre"
+                bam[name_key] = item[0]
+                if (not os.path.exists(bam_file)):
+                    os.system(f"touch {bam_file}")
             elif ( ".fastq" in item[0] or ".fq" in item[0]):
-                read = str(tmp_reads) + str(key) + ".pre"
-                fastq[str(key)] = item[0]
-                os.system(f"touch {read}")
+                if (length_fastp) :
+                    name_key = str(key) + "." + str(length_fastp) + "bp"
+                else :
+                    name_key = str(key)
+                read = str(tmp_reads) + name_key + ".pre"
+                fastq[name_key] = item[0]
+                if (not os.path.exists(read)):
+                    os.system(f"touch {read}")
  
 
     all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
@@ -293,101 +356,221 @@ def all_samples(inputs_dict, fastq2, fastq, bam):
 fastq2 = {}
 fastq = {}
 bam = {}
+if config["USAGE"]["TRIMMING"]:
+    length_fastp = int(config["TRIMMING"]["LENGTH"])
+    if not length_fastp:
+        length_fastp = 100
+else :
+    length_fastp = None
 
-
-csv = config["GENERAL"]["DATA_INPUTS"]["SAMPLES_FILE"]
+csv = config["GENERAL"]["SAMPLES_FILE"]
 if(check_value(csv)) :
 
     dict_csv = csv_to_dict(csv)
-    all_samples = all_samples(dict_csv, fastq2, fastq, bam)
+    all_samples = all_samples(dict_csv, fastq2, fastq, bam, length_fastp)
 
 
 else:
     dict_directory = dict_samples_directory()
-    all_samples = all_samples(dict_directory, fastq2, fastq, bam)
+    all_samples = all_samples(dict_directory, fastq2, fastq, bam, length_fastp)
 
 
-#     for key, item in dictionnary.items():
-#         if (len(item) == 2):
-#             if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) ):
-#                 if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
-#                     read1 = tmp_reads1 + key + ".pre"
-#                     read2 = tmp_reads2 + key + ".pre"
-#                     fastq2[key] = [item[0],item[1]]
-#                     os.system(f"touch {read1} {read2}")
-
-
-#         elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
-#             if( ".bam" in item[0]):
-#                 bam_file = tmp_bam + key + ".pre"
-#                 bam[key] = item[0]
-#                 os.system(f"touch {bam_file}")
-#             elif ( ".fastq" in item[0] or ".fq" in item[0]):
-#                 read = tmp_read + key + ".pre"
-#                 fastq[key] = item[0]
-#                 os.system(f"touch {read}")
-
-#     all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
-
-#     
-
-# else :
-#     all_samples = list_samples()
-
-#     include: "modules/formatting_directories.smk"
-
-
-summary_file = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/sample_names.txt"
+summary_file = working_directory + prefix + "/2-Counts/sample_names.txt"
 if(os.path.exists(summary_file)) :
     df_summary = pd.read_csv(summary_file,sep="\t", header=0)
     ids = df_summary["id"].values.tolist()
 
 
-#Obtenir l'heure actuelle
-current_time = time.localtime()
 
-#Formater la date et l'heure comme identifiant unique
-unique_id = time.strftime("%Y%m%d%H%M%S", current_time)
+#Vérification des parametre config.yaml
+
+#Vérification des executables et paramètres généraux.
+if not all_samples:
+    print_once(f"Erreur : Aucun patient fournit")
+    sys.exit(1)
+else:
+    print_once("Patients ...... OK")
+
+genome = config["GENERAL"]["GENOME"]
+if not os.path.isfile(genome):
+    genome = working_directory + "/1-raw_data/reference/" + genome
+
+if not os.path.isfile(genome):
+        print_once(f"Erreur : Le fichier génome : {genome} n'existe pas.")
+        sys.exit(1)
+else : 
+    print_once(f"Fichier {genome} ...... OK")
+    genome = os.path.abspath(genome)
+    name_genome = genome.rsplit(".",1)[0].rsplit("/",1)[1]
+
+pigz = config["DEPENDANCES"]["FORMATING"]["PIGZ"]
+if not pigz:
+    pigz = "pigz"
+check_excutable(pigz)
+
+include: "modules/compress_fastq.smk"
+print_once("Module compress_fastq ...... OK")
+
+#Vérification des executable de trimming.
+if config["USAGE"]["TRIMMING"]:
+    fastp = config["DEPENDANCES"]["FORMATING"]["FASTP"]
+    if not fastp:
+        fastp = "fastp"
+    check_excutable(fastp)
+    path_fastq = working_directory + "/2-processed_data/trimmed/fastq/"
+    path_bam = working_directory + "/2-processed_data/trimmed/BAM/"
+    
+    include: "modules/trimming_fastq.smk"
+    print_once("Module trimming_fastq ...... OK")
+
  
+else:
+    path_fastq = working_directory + "/1-raw_data/fastq/"
+    path_bam = working_directory + "/2-processed_data/not_trimmed/BAM/"
 
 
+
+
+#Vérification des executables de qualité controle
+if config["USAGE"]["QC"]:
+    fastqc = config["DEPENDANCES"]["QC"]["FASTQC"]
+    if not fastqc:
+        fastqc = "fastqc"
+    check_excutable(fastqc)
+    multiqc = config["DEPENDANCES"]["QC"]["MULTIQC"]
+    if not multiqc:
+        multiqc = "multiqc"
+    check_excutable(multiqc)
+
+    include: "modules/quality_control_fastq.smk"
+    print_once("Module quality_control_fastq ...... OK")
+    #include: "modules/quality_control_bam.smk"
+    print_once("Module quality_control_bam ...... OK")
+
+
+#Vérification des dépendances spliceLauncher
+if config["USAGE"]["SPLICELAUNCHER"]:
+    STAR = config["DEPENDANCES"]["MAPPING"]["STAR"]
+    if not STAR:
+        STAR = "STAR"
+    check_excutable(STAR)
+
+    samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
+    if not samtools:
+        samtools = "samtools"
+    check_excutable("samtools")
+
+    Rscript = config["DEPENDANCES"]["GENERAL"]["RSCRIPT"]
+    if not Rscript:
+        Rscript = "Rscript"
+    check_excutable(Rscript)
+
+    perl = config["DEPENDANCES"]["GENERAL"]["PERL"]
+    if not perl:
+        perl = "perl"
+    check_excutable(perl)
+
+    bedtools = config["DEPENDANCES"]["ANALYSES"]["BEDTOOLS"]
+    if not bedtools:
+        bedtools = "bedtools"
+    check_excutable(bedtools)
+
+    spliceLauncher = config["DEPENDANCES"]["ANALYSES"]["SPLICELAUNCHER"]
+    if not os.path.isdir(spliceLauncher):
+        print_once(f"Erreur : Le dossier {spliceLauncher} n'existe pas.")
+        sys.exit(1)
+    else : 
+        print_once(f"Le dossier {spliceLauncher} ...... OK")
+    
+    gff3 = config["GENERAL"]["GFF3"]
+    if not os.path.isfile(gff3):
+        gff3 = working_directory + "/1-raw_data/annotation/" + gff3
+
+    if not os.path.isfile(gff3):
+        print_once(f"Erreur : Le fichier gff3 : {gff3} n'existe pas.")
+        sys.exit(1)
+    else : 
+        print_once(f"Fichier {gff3} ...... OK")
+
+    mane = config["GENERAL"]["MANE"]
+    if not os.path.isfile(mane):
+        mane = working_directory + "/1-raw_data/annotation/" + mane
+
+    if not os.path.isfile(mane):
+        print_once(f"Erreur : Le fichier mane : {mane} n'existe pas.")
+        sys.exit(1)
+    else : 
+        print_once(f"Fichier {mane} ...... OK")
+
+    include: "modules/spliceLauncher.smk"
+    print_once("Module spliceLauncher ...... OK")
+
+os.environ["SNAKEMAKE_PRINT"] = "true"
 #Calling Snakemake module
-include: "modules/formatting_file.smk"
-include: "modules/quality_control_fastq.smk"
-include: "modules/spliceLaucher.smk"
 #include: "modules/featureCounts.smk"
 #include: "modules/hisat2.smk"
-include: "modules/quality_control_bam.smk"
 
 
 # rule all:
 #     input:
-#         mergeFile = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/2-Counts/merge.counts"
+#         mergeFile = working_directory + prefix + "/2-Counts/merge.counts"
 
 # rule all:
 #     input:
-#         # read1 =expand(os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
-#         # read2 =expand(os.path.abspath(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
-#         #bam = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
-#         directory_data = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_fastq_raw_" + unique_id + "_data/",
-#         html =config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_fastq_raw_" + unique_id + ".html",
-#         directory_data2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_fastq_trimmed_" + unique_id + "_data/",
-#         html2 = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"]  + "/2-processed_data/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_fastq_trimmed_" + unique_id + ".html",
-#         directory_data_bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_bam_" + unique_id + "_data/",
-#         html_bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_bam_" + unique_id + ".html",
+#         # read1 =expand(os.path.abspath(working_directory + "/2-processed_data/samples/{reads}_1.fastq.gz"),reads= all_samples),
+#         # read2 =expand(os.path.abspath(working_directory + "/2-processed_data/samples/{reads}_2.fastq.gz"),reads= all_samples),
+#         #bam = expand(working_directory + prefix + "/1-mapping/{reads}.sorted.bam.bai",reads= all_samples),
+#         directory_data = working_directory + "/2-processed_data/quality_control/multiqc/" + prefix +"_fastq_raw_" + unique_id + "_data/",
+#         html =working_directory + "/2-processed_data/quality_control/multiqc/" + prefix  + "_fastq_raw_" + unique_id + ".html",
+#         directory_data2 = working_directory + "/2-processed_data/quality_control/multiqc/" + prefix +"_fastq_trimmed_" + unique_id + "_data/",
+#         html2 = working_directory  + "/2-processed_data/quality_control/multiqc/" + prefix  + "_fastq_trimmed_" + unique_id + ".html",
+#         directory_data_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix +"_bam_" + unique_id + "_data/",
+#         html_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix  + "_bam_" + unique_id + ".html",
+
+
 
 
 rule all:
     input:
-        reference = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"],
-        SA = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/SA",
-        SAindex = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/2-processed_data/reference/" + config["GENERAL"]["DATA_INPUTS"]["GENOME"].rsplit(".",1)[0] + "_STAR/SAindex"
-rule delete_tmp:
-    input: 
-        rules.all.output
+        #directory = directory(working_directory + prefix + "/2-bed/"),
+        count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_report_" + date + ".txt",
+        directy_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_results",
+        #clear_cache = working_directory + "/log/clear_cache.done",
+        # directory_data_raw = path_qc + "multiqc/fastq_raw/" + prefix +"_" + unique_id + "_data/",
+        # html_raw = path_qc + "multiqc/fastq_raw/" + prefix + "_" + unique_id + ".html",
+        # directory_data_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + "_data/",
+        # html_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + ".html"
+        # bam = expand(working_directory + prefix + "/1-mapping/STAR/{reads}_ Aligned.out.bam",reads= all_samples),
+        # outFileNamePrefix = expand(working_directory + prefix + "/1-mapping/STAR/{reads}_",reads= all_samples)
+    shell:
+        "bash scripts/clear_cache.sh"
 
-    params:
-        tmp_directory = config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/.tmp/"
+# rule clear_cache:
+#     output: touch(working_directory + "/log/clear_cache.done")
+#     shell:
+#         "bash scripts/clear_cache.sh"
+
+
+#hook
+onsuccess:
+    memory_release()
+
+
+mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".count "
+count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_report_" + date + ".txt "
+directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_results "
+command =  "rm -rf " + mergeFile + count_report + directory_count_results + "&& bash scripts/clear_cache.sh"
+onerror:
+    memory_release()
+    shell(command)
+
+
+# rule delete_tmp:
+#     input: 
+#         rules.all.output
+
+#     params:
+#         tmp_directory = working_directory + "/.tmp/"
     
-    run:
-        delete_directory(tmp_directory)
+#     run:
+#         delete_directory(tmp_directory)

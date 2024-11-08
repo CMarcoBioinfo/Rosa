@@ -2,6 +2,9 @@
 # Parameter configuration file
 
 DEPENDANCES:
+    GENERAL:
+        RSCRIPT: "Rscript"
+        PERL: "perl"
     FORMATING:
         PIGZ: "pigz" # [required] path to pigz executable
         FASTP: "fastp" # [required] path to fastqc executable
@@ -12,32 +15,53 @@ DEPENDANCES:
         MULTIQC: "multiqc" # [required] path to multiqc executable
     MAPPING:
         HISAT2:  "hisat2" # [required] path to hisat2 executable
-        STAR : "STAR" # [required] path to STAR
+        STAR : "STAR" # [required] path to STAR; 
         SAMTOOLS: "samtools" # [required] path to samtools executable
     ANALYSES:
-        SPLICELAUCHER: "/home/micro/Marco_Corentin/11-Snakemake/Rosa/SpliceLauncher" # [required] path to directory of spliceLaucher
+        BEDTOOLS: "bedtools"
+        SPLICELAUNCHER: "/home/micro/Marco_Corentin/11-Snakemake/Rosa/SpliceLauncher" # [required] path to directory of spliceLauncher
         FEATURECOUNTS: "featureCounts" # [required] path to featureCounts executable
 
 GENERAL:
-    DATA_INPUTS:
-        SAMPLES_FILE: "data_inputs/metadata/library_12_2023.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
-        WORKING_DIRECTORY: "data_inputs"  # [required] Path to input data tree. Default folder is data_input
-        GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] Name of reference file in working_directory/reference/
-        ANNOTATION: "GRCh37.p13.SLA.chr.gtf" # [required] Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
+        WORKING_DIRECTORY: "data"  # [required] Path to input data tree. Default folder is data
+        PREFIX: "run_library_04_2023_to_04_204"  # [required] Name of run        
+        SAMPLES_FILE: "data/metadata/library_04_2023_to_04_2024.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
+        GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] path to reference or Name of reference file in working_directory/reference/
+        GTF: "GRCh37.p13.SLA.chr.gtf" # [required] path to gtf Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
         GFF3: "gencode.v19.annotation.gff3"
         MANE: "MANE.to.splicelauncher.txt"
-    DATA_OUTPUTS:
-        WORKING_DIRECTORY: ""  # [optional] Path to working directory. Default: in current directory
-        PREFIX: "run_library_trimmed_12_2023"  # [required] Name of run
 
+USAGE:
+    QC: ""
+    TRIMMING: "1"
+    SPLICELAUNCHER: "1"
 
-SPLICELAUCHER:
+TRIMMING:
+    LENGTH: 100 # [required] reads shorted than length_required will be discarded
+
+SPLICELAUNCHER:
     INDEX:
-        SJDBOVERHANG: "" # [optional] (int) minimum overhang (i.e. block size) for annotated (sjdb) spliced alignments. Default: 99
-        GENOMESASPARSED: "" # [optional] (int) suffux array sparsity, i.e. distance between indices: use bigger numbers to decrease needed RAM at the cost of mapping speed reduction. 
+        SJDB_OVERHANG: "" # [optional] (int) minimum overhang (i.e. block size) for annotated (sjdb) spliced alignments. Default: 99
+        GENOME_SA_SPARSE_D: "" # [optional] (int) suffux array sparsity, i.e. distance between indices: use bigger numbers to decrease needed RAM at the cost of mapping speed reduction. 
         RAM: "" # [optional] (int) maximum avalable RAM (bytes) for genome genration 
-        GENOMESAINDEXNBASES: "12" # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
-        THREADS: ""
+        GENOME_SA_INDEX_NBASES: "12" # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
+        THREADS: 3
+    MAPPING:
+        OUT_FILTER_MISMATCH_NMAX: "2" # [optional] (int)
+        OUT_FILTER_MULTIMAP_NMAX: "10" # [optional] (int)
+        OUT_SJ_FILTER_INTRON_MAXVSREADN: "500000" # [optional] (int)
+        THREADS: 3
+    ANALYSE:
+        NB_INTERVALS: "" #[optinal] (int)
+        MIN_COV: ""
+        THRESHOLD: ""
+        TRANSCRIPT_LIST: ""
+        REMOVE_OTHER: ""
+        BED_OUT: "1"
+        TEXT: "1"
+        GRAPHICS: "1"
+
+
 
 PARAMS:
     FILTERFASTQ:
@@ -46,7 +70,6 @@ PARAMS:
     FASTQC:
         THREADS: 1 # [required] Maximum number of threads the rule can use
     FASTP:
-        LENGTH: 100 # [required] reads shorted than length_required will be discarded
         THREADS: 1 # [required] Maximum number of threads the rule can use
     HISAT2:
         THREADS: 3  # [required] Maximum number of threads the rule can use
