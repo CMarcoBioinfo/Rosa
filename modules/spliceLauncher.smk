@@ -111,6 +111,11 @@ rule spliceLauncher_star_index:
         "--genomeSAindexNbases {params.genomeSAindexNbases}"
 
 
+def calculate_mem_per_rule(mem_mb, max_cores, threads):
+    max_threads = max(int((int(max_cores)/ int(threads))),1)
+    mem_per_process = int(mem_mb) / int(max_threads)
+    return int(mem_per_process)
+
 
 rule spliceLauncher_star_align:
     input:
@@ -146,6 +151,9 @@ rule spliceLauncher_star_align:
 
     threads:
         config["SPLICELAUNCHER"]["MAPPING"]["THREADS"]
+    
+    resources:
+        mem_mb = lambda wildcards,threads: calculate_mem_per_rule(mem_mb, max_cores, threads)
 
     run:
         create_directory_if_not_exists(params["directory_log"])
@@ -172,7 +180,7 @@ rule spliceLauncher_star_align:
             "--genomeLoad NoSharedMemory")
             shell("mv {params.log} {params.log_final} {params.log_progress} {params.tab} {params.STARpass1} {params.STARgenome} {params.directory_log}")
         except Exception as e:
-            shell("rm -f {params.log} {params.log_final} {params.log_progress} {params.tab} {params.STARpass1} {params.STARgenome} {params.outTmpDir}")
+            shell("rm -rf {params.log} {params.log_final} {params.log_progress} {params.tab} {params.STARpass1} {params.STARgenome} {params.outTmpDir}")
             raise e
 
 
@@ -228,7 +236,6 @@ rule spliceLauncher_create_bed:
         "awk '{{if($5==255){{print $0}}}}' >> {output.bed}"
 
 
-
 rule spliceLauncher_count_Junctions:
     input:
         bed_ref = working_directory + "/2-processed_data/reference/" + name_genome + "_spliceLauncher_STAR/BEDannotation.bed",
@@ -248,23 +255,34 @@ rule spliceLauncher_count_Junctions:
         "awk 'BEGIN{{OFS=\"\\t\"}}{{print $1,$2,$3,$6,$10,$4}}' "
         "> {output.counts}"
 
+
+genes_of_interest = config["SPLICELAUNCHER"]["ANALYSE"]["GENES_OF_INTEREST"]
+if not os.path.isfile(genes_of_interest):
+    genes_of_interest = working_directory + "/metadata/genes_of_interest/" + genes_of_interest
+
+if not os.path.isfile(genes_of_interest):
+    genes_of_interest = ""
+
+else :
+    print_once(f"Fichier {genes_of_interest} ...... OK")
+    genes_of_interest = "-g " + genes_of_interest
+
+
 rule spliceLauncher_merge_count:
     input:
         counts = expand(path_bam + "spliceLauncher_STAR/" + name_genome + "/getClosestExons/{reads}.count",reads= all_samples)
 
     output:
-        mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".count"
+        mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".txt"
     
     params:
         spliceLauncher = spliceLauncher,
         perl = perl,
-        directory = directory(path_results + "/spliceLauncher/mergeFiles/")
+        directory = directory(path_results + "/spliceLauncher/mergeFiles/"),
+        genes_of_interest = genes_of_interest
 
-
-    run:
-        #create_directory_if_not_exists(params["directory"])
-        shell("{params.perl} {params.spliceLauncher}/scripts/joinJuncFiles.pl {input.counts} > {output.mergeFile}")
-
+    shell:
+        "{params.perl} {params.spliceLauncher}/scripts/joinJuncFiles.pl -c {input.counts} {params.genes_of_interest} > {output.mergeFile}"
 
 
 sampleNames = result = '|'.join(all_samples)
@@ -293,11 +311,14 @@ else:
     transcriptList = ""
     removeOther = ""
 
-text = config["SPLICELAUNCHER"]["ANALYSE"]["TEXT"]
-if text:
-    text = "--text "
+txt = config["SPLICELAUNCHER"]["ANALYSE"]["TEXT"]
+if txt:
+    txt = "--text "
+    extension = ".txt"
+
 else:
-    text = ""
+    txt = ""
+    extension = ".xslx"
 
 bedOut = config["SPLICELAUNCHER"]["ANALYSE"]["BED_OUT"]
 if bedOut:
@@ -313,14 +334,16 @@ current_time = time.localtime()
 #Formater la date et l'heure comme identifiant unique
 date = time.strftime("%m-%d-%Y", current_time)
 
+
 rule spliceLauncher_Analyse:
     input:
-        mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".count",
+        mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".txt",
         annot = working_directory + "/2-processed_data/reference/" + name_genome + "_spliceLauncher_STAR/SpliceLauncherAnnot.txt"
 
     output:
-        count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_report_" + date + ".txt",
-        directy_count_results = directory(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_results")
+        count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt",
+        outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
+        directy_count_results = directory(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results")
 
     params:
         spliceLauncher = spliceLauncher,
@@ -330,10 +353,11 @@ rule spliceLauncher_Analyse:
         min_cov = min_cov,
         transcriptList = transcriptList,
         removeOther = removeOther,
-        text = text,
+        txt = txt,
         bedOut = bedOut,
         Graphics = Graphics,
-        directory = path_results + "/spliceLauncher/"
+        directory = path_results + "/spliceLauncher/",
+        sampleNames = sampleNames
 
 
     shell:
@@ -344,10 +368,35 @@ rule spliceLauncher_Analyse:
         "-n {params.nbIntervals} "
         "{params.transcriptList}"
         "{params.removeOther}"
-        "{params.text}"
+        "{params.txt}"
         "{params.bedOut}"
         "{params.Graphics}"
+        "--SampleNames '{params.sampleNames}' "
         "--threshold {params.threshold} "
         "--min_cov {params.min_cov} "
+
+
+# length_all_samples = len(all_samples)
+
+# rule spliceLauncher_filter_analyse:
+#     input:
+#         directy_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results",
+#         outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
+
+#     output:
+#         filterFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".filter" + extension
+    
+#     params:
+#         Rscript = Rscript,
+#         length_all_samples = length_all_samples,
+#         txt = txt,
+#         Graphics = Graphics
+
+#     shell:
+#         "{params.Rscript} scripts/spliceLaucher_filter_analyse.r "
+#         "--input {input.outputSpliceLauncher} "
+#         "--length {params.length_all_samples} "
+#         "{params.txt}"
+#         "{params.Graphics}"        
 
 #create_directory_if_not_exists(params["directory"])

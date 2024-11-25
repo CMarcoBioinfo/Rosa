@@ -14,15 +14,45 @@ import fcntl
 import gc
 
 
+#Vérification de l'option dag et rulegraph
+args = sys.argv
+dag_mode = "--dag" in args
+rulegraph_mode = "--rulegraph" in args
+
+
 if "SNAKEMAKE_PRINT" not in os.environ:
     os.environ["SNAKEMAKE_PRINT"] = "false"
 
 def print_once(message):
-    if os.getenv("SNAKEMAKE_PRINT") == "false":
-        print(message)
+    if not dag_mode and not rulegraph_mode:
+        if os.getenv("SNAKEMAKE_PRINT") == "false":
+            print(message)
 
+if "MAX_CORES" not in os.environ:
+    bool_cores = "--cores" in args
+    if bool_cores:
+        index_cores = sys.argv.index("--cores")
+        os.environ["MAX_CORES"] = sys.argv[index_cores]
 
+    bool_cores = "-c" in args
+    if bool_cores :
+        index_cores = sys.argv.index("-c") + 1
+        os.environ["MAX_CORES"] = sys.argv[index_cores]
+
+    bool_cores = "--jobs" in args
+    if bool_cores :
+        index_cores = sys.argv.index("--jobs") + 1
+        os.environ["MAX_CORES"] = sys.argv[index_cores]
+            
+    bool_cores = "-j" in args
+    if bool_cores :
+        index_cores = sys.argv.index("-j") + 1
+        os.environ["MAX_CORES"] = sys.argv[index_cores]
+    else:
+        os.environ["MAX_CORES"] = "1"
     
+max_cores = int(os.environ["MAX_CORES"])
+
 
 #Obtenir l'heure actuelle
 if os.getenv("SNAKEMAKE_PRINT") == "false":
@@ -384,6 +414,8 @@ if(os.path.exists(summary_file)) :
 
 #Vérification des parametre config.yaml
 
+list_inputs = []
+
 #Vérification des executables et paramètres généraux.
 if not all_samples:
     print_once(f"Erreur : Aucun patient fournit")
@@ -445,7 +477,18 @@ if config["USAGE"]["QC"]:
     include: "modules/quality_control_fastq.smk"
     print_once("Module quality_control_fastq ...... OK")
     #include: "modules/quality_control_bam.smk"
-    print_once("Module quality_control_bam ...... OK")
+    #print_once("Module quality_control_bam ...... OK")
+
+    #ajout des fichiers de sorties
+    directory_data_raw = path_qc + "multiqc/fastq_raw/" + prefix +"_" + unique_id + "_data/"
+    html_raw = path_qc + "multiqc/fastq_raw/" + prefix + "_" + unique_id + ".html"
+    list_inputs.append(directory_data_raw)
+    list_inputs.append(html_raw)
+    if config["USAGE"]["TRIMMING"]:
+        directory_data_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + "_data/"
+        html_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + ".html"
+        list_inputs.append(directory_data_trimmed)
+        list_inputs.append(html_trimmed)
 
 
 #Vérification des dépendances spliceLauncher
@@ -468,7 +511,8 @@ if config["USAGE"]["SPLICELAUNCHER"]:
     perl = config["DEPENDANCES"]["GENERAL"]["PERL"]
     if not perl:
         perl = "perl"
-    check_excutable(perl)
+    check_excutable(perl)*
+
 
     bedtools = config["DEPENDANCES"]["ANALYSES"]["BEDTOOLS"]
     if not bedtools:
@@ -480,7 +524,7 @@ if config["USAGE"]["SPLICELAUNCHER"]:
         print_once(f"Erreur : Le dossier {spliceLauncher} n'existe pas.")
         sys.exit(1)
     else : 
-        print_once(f"Le dossier {spliceLauncher} ...... OK")
+        print_once(f"Dossier {spliceLauncher} ...... OK")
     
     gff3 = config["GENERAL"]["GFF3"]
     if not os.path.isfile(gff3):
@@ -504,6 +548,25 @@ if config["USAGE"]["SPLICELAUNCHER"]:
 
     include: "modules/spliceLauncher.smk"
     print_once("Module spliceLauncher ...... OK")
+
+    count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt"
+    directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results"
+    list_inputs.append(count_report)
+    list_inputs.append(directory_count_results)
+    
+
+
+if not list_inputs:
+    read1 = expand(os.path.abspath(path_fastq + "{reads}.1.fastq.gz"),reads= all_samples)
+    read2 = expand(os.path.abspath(path_fastq + "{reads}.2.fastq.gz"),reads= all_samples)
+    list_inputs.append(read1)
+    list_inputs.append(read2)
+
+    if config["USAGE"]["TRIMMING"]:
+        html = expand(path_qc + "fastp_trimming/{reads}.html",reads= all_samples)
+        json = expand(path_qc + "fastp_trimming/{reads}.json",reads= all_samples)
+        list_inputs.append(html)
+        list_inputs.append(json)
 
 os.environ["SNAKEMAKE_PRINT"] = "true"
 #Calling Snakemake module
@@ -529,17 +592,9 @@ os.environ["SNAKEMAKE_PRINT"] = "true"
 
 
 
-
 rule all:
     input:
-        #directory = directory(working_directory + prefix + "/2-bed/"),
-        count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_report_" + date + ".txt",
-        directy_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_results",
-        #clear_cache = working_directory + "/log/clear_cache.done",
-        # directory_data_raw = path_qc + "multiqc/fastq_raw/" + prefix +"_" + unique_id + "_data/",
-        # html_raw = path_qc + "multiqc/fastq_raw/" + prefix + "_" + unique_id + ".html",
-        # directory_data_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + "_data/",
-        # html_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + ".html"
+        list_inputs
         # bam = expand(working_directory + prefix + "/1-mapping/STAR/{reads}_ Aligned.out.bam",reads= all_samples),
         # outFileNamePrefix = expand(working_directory + prefix + "/1-mapping/STAR/{reads}_",reads= all_samples)
     shell:
@@ -556,11 +611,13 @@ onsuccess:
     memory_release()
 
 
-mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".count "
-count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_report_" + date + ".txt "
-directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + ".count_results "
-command =  "rm -rf " + mergeFile + count_report + directory_count_results + "&& bash scripts/clear_cache.sh"
+
+
 onerror:
+    mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".txt "
+    count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "._report_" + date + ".txt "
+    directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results "
+    command =  "rm -rf " + mergeFile + count_report + directory_count_results + "&& bash scripts/clear_cache.sh"
     memory_release()
     shell(command)
 
