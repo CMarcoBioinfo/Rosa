@@ -2,7 +2,7 @@
 read -t 21600 -p  "Voulez-vous vider la mémoire cache ? (y/n): " choice
 if [ $? -ne 0 ]; then
     echo "Temps écoulé. Opération annulée : la mémoire cache n'a pas été vidée."
-    exit 1
+    exit 0
 fi
 
 if [[ "$choice" == "y" || "$choice" == "yes" || "$choice" == "o" || "$choice" == "oui" ]]; then
