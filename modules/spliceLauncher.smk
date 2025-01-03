@@ -286,7 +286,6 @@ rule spliceLauncher_merge_count:
 
 
 sampleNames = result = '|'.join(all_samples)
-
 nbIntervals = config["SPLICELAUNCHER"]["ANALYSE"]["NB_INTERVALS"]
 if not nbIntervals:
     nbIntervals = int(10)
@@ -311,28 +310,44 @@ else:
     transcriptList = ""
     removeOther = ""
 
-txt = config["SPLICELAUNCHER"]["ANALYSE"]["TEXT"]
+txt = config["SPLICELAUNCHER"]["ANALYSE"]["TXT"]
 if txt:
     txt = "--text "
     extension = ".txt"
 
 else:
     txt = ""
-    extension = ".xslx"
+    extension = ".xlsx"
+
+#Formater la date et l'heure comme identifiant unique
+current_time = time.localtime()
+date = time.strftime("%m-%d-%Y", current_time)
+listOutputSpliceLauncher = []
+count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt",
+listOutputSpliceLauncher.append(count_report)
+outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
+listOutputSpliceLauncher.append(outputSpliceLauncher)
 
 bedOut = config["SPLICELAUNCHER"]["ANALYSE"]["BED_OUT"]
 if bedOut:
     bedOut = "--bedOut "
+    bed = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + ".bed"
+    listOutputSpliceLauncher.append(bed)
+
 else:
     bedOut = ""
 
 Graphics =config["SPLICELAUNCHER"]["ANALYSE"]["GRAPHICS"]
 if Graphics:
     Graphics = "--Graphics "
+    pdf = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.pdf",reads= all_samples)
+    pdf_significant_genes = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_genes.pdf",reads= all_samples)
+    pdf_significant_junctions = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions.pdf",reads= all_samples)
+    listOutputSpliceLauncher.append(pdf)
+    listOutputSpliceLauncher.append(pdf_significant_genes)
+    listOutputSpliceLauncher.append(pdf_significant_junctions)
 
-current_time = time.localtime()
-#Formater la date et l'heure comme identifiant unique
-date = time.strftime("%m-%d-%Y", current_time)
+
 
 
 rule spliceLauncher_Analyse:
@@ -341,9 +356,7 @@ rule spliceLauncher_Analyse:
         annot = working_directory + "/2-processed_data/reference/" + name_genome + "_spliceLauncher_STAR/SpliceLauncherAnnot.txt"
 
     output:
-        count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt",
-        outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
-        directy_count_results = directory(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results")
+        listOutputSpliceLauncher
 
     params:
         spliceLauncher = spliceLauncher,
@@ -373,30 +386,39 @@ rule spliceLauncher_Analyse:
         "{params.Graphics}"
         "--SampleNames '{params.sampleNames}' "
         "--threshold {params.threshold} "
-        "--min_cov {params.min_cov} "
+        "--min_cov {params.min_cov}"
 
 
-# length_all_samples = len(all_samples)
+length_all_samples = len(all_samples)
+outputFilterAnalyse = []
+filterFilesSample = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
+filterFile = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
+outputFilterAnalyse.append(filterFile)
+outputFilterAnalyse.append(filterFilesSample)
 
-# rule spliceLauncher_filter_analyse:
-#     input:
-#         directy_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results",
-#         outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
+rule spliceLauncher_filter_analyse:
+    input:
+        outputSpliceLauncher = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher" + extension,
 
-#     output:
-#         filterFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".filter" + extension
-    
-#     params:
-#         Rscript = Rscript,
-#         length_all_samples = length_all_samples,
-#         txt = txt,
-#         Graphics = Graphics
+    output:
+        outputFilterAnalyse
 
-#     shell:
-#         "{params.Rscript} scripts/spliceLaucher_filter_analyse.r "
-#         "--input {input.outputSpliceLauncher} "
-#         "--length {params.length_all_samples} "
-#         "{params.txt}"
-#         "{params.Graphics}"        
+    params:
+        Rscript = Rscript,
+        length_all_samples = length_all_samples,
+        txt = txt,
+        Graphics = Graphics,
+        sampleNames = sampleNames,
+        directory = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/"
+
+    shell:
+        "{params.Rscript} scripts/spliceLaucher_filter_analyse.r "
+        "--input {input.outputSpliceLauncher} "
+        "--output {output[0]} "
+        "--length {params.length_all_samples} "
+        "--directory {params.directory} "
+        "{params.txt}"
+        "{params.Graphics}"
+        "--SampleNames '{params.sampleNames}' "  
 
 #create_directory_if_not_exists(params["directory"])

@@ -511,8 +511,7 @@ if config["USAGE"]["SPLICELAUNCHER"]:
     perl = config["DEPENDANCES"]["GENERAL"]["PERL"]
     if not perl:
         perl = "perl"
-    check_excutable(perl)*
-
+    check_excutable(perl)
 
     bedtools = config["DEPENDANCES"]["ANALYSES"]["BEDTOOLS"]
     if not bedtools:
@@ -551,8 +550,12 @@ if config["USAGE"]["SPLICELAUNCHER"]:
 
     count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt"
     directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results"
-    list_inputs.append(count_report)
-    list_inputs.append(directory_count_results)
+    filterFilesSample = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
+    filterFile = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
+    list_inputs.append(filterFile)
+    list_inputs.append(filterFilesSample)
+    # list_inputs.append(count_report)
+    # list_inputs.append(directory_count_results)
     
 
 
@@ -589,7 +592,6 @@ os.environ["SNAKEMAKE_PRINT"] = "true"
 #         html2 = working_directory  + "/2-processed_data/quality_control/multiqc/" + prefix  + "_fastq_trimmed_" + unique_id + ".html",
 #         directory_data_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix +"_bam_" + unique_id + "_data/",
 #         html_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix  + "_bam_" + unique_id + ".html",
-
 
 
 rule all:
