@@ -391,10 +391,15 @@ rule spliceLauncher_Analyse:
 
 length_all_samples = len(all_samples)
 outputFilterAnalyse = []
-filterFilesSample = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
-filterFile = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
-outputFilterAnalyse.append(filterFile)
-outputFilterAnalyse.append(filterFilesSample)
+filterFilesSampleSignificant = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
+#filterFilesSampleUnique = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.unique_junctions" + extension,reads= all_samples)
+
+filterFileSignificant = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
+filterFileUnique = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.unique_junctions" + extension,
+outputFilterAnalyse.append(filterFileSignificant)
+outputFilterAnalyse.append(filterFileUnique)
+outputFilterAnalyse.append(filterFilesSampleSignificant)
+#outputFilterAnalyse.append(filterFilesSampleUnique)
 
 rule spliceLauncher_filter_analyse:
     input:
@@ -414,7 +419,8 @@ rule spliceLauncher_filter_analyse:
     shell:
         "{params.Rscript} scripts/spliceLaucher_filter_analyse.r "
         "--input {input.outputSpliceLauncher} "
-        "--output {output[0]} "
+        "--outputSignificant {output[0]} "
+        "--outputUnique {output[1]} "
         "--length {params.length_all_samples} "
         "--directory {params.directory} "
         "{params.txt}"

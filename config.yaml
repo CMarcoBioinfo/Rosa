@@ -5,6 +5,7 @@ DEPENDANCES:
     GENERAL:
         RSCRIPT: "Rscript"
         PERL: "perl"
+        AWK: "awk"
     FORMATING:
         PIGZ: "pigz" # [required] path to pigz executable
         FASTP: "fastp" # [required] path to fastqc executable
@@ -24,18 +25,18 @@ DEPENDANCES:
 
 GENERAL:
         WORKING_DIRECTORY: "data"  # [required] Path to input data tree. Default folder is data
-        PREFIX: "run_library_04_2023_to_04_204"  # [required] Name of run        
-        SAMPLES_FILE: "data/metadata/library_04_2023_to_04_2024.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
+        PREFIX: "run_library_04_2023_to_04_2024"  # [required] Name of run        
+        SAMPLES_FILE: "data/metadata/samples_path/library_04_2023_to_04_2024.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
         GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] path to reference or Name of reference file in working_directory/reference/
         GTF: "GRCh37.p13.SLA.chr.gtf" # [required] path to gtf Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
         GFF3: "gencode.v19.annotation.gff3"
         MANE: "MANE.to.splicelauncher.txt"
 
 USAGE:
-    QC: ""
     TRIMMING: "1"
+    QC: ""
     SPLICELAUNCHER: "1"
-
+    
 TRIMMING:
     LENGTH: 100 # [required] reads shorted than length_required will be discarded
 
@@ -43,7 +44,7 @@ SPLICELAUNCHER:
     INDEX:
         SJDB_OVERHANG: "" # [optional] (int) minimum overhang (i.e. block size) for annotated (sjdb) spliced alignments. Default: 99
         GENOME_SA_SPARSE_D: "" # [optional] (int) suffux array sparsity, i.e. distance between indices: use bigger numbers to decrease needed RAM at the cost of mapping speed reduction. 
-        RAM: "" # [optional] (int) maximum avalable RAM (bytes) for genome genration 
+        RAM: "" # [optional] (int) maximum avalable RAM (bytes) for genome generation 
         GENOME_SA_INDEX_NBASES: "12" # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
         THREADS: 3
     MAPPING:
@@ -52,13 +53,14 @@ SPLICELAUNCHER:
         OUT_SJ_FILTER_INTRON_MAXVSREADN: "500000" # [optional] (int)
         THREADS: 3
     ANALYSE:
+        GENES_OF_INTEREST: "SLA-DFT-Sureselect-V3.csv" #[optional]
         NB_INTERVALS: "" #[optinal] (int)
         MIN_COV: ""
         THRESHOLD: ""
         TRANSCRIPT_LIST: ""
         REMOVE_OTHER: ""
         BED_OUT: "1"
-        TEXT: "1"
+        TXT: ""
         GRAPHICS: "1"
 
 
