@@ -18,13 +18,14 @@ import gc
 args = sys.argv
 dag_mode = "--dag" in args
 rulegraph_mode = "--rulegraph" in args
+filegraph_mode = "--filegraph" in args
 
 
 if "SNAKEMAKE_PRINT" not in os.environ:
     os.environ["SNAKEMAKE_PRINT"] = "false"
 
 def print_once(message):
-    if not dag_mode and not rulegraph_mode:
+    if not dag_mode and not rulegraph_mode and not filegraph_mode:
         if os.getenv("SNAKEMAKE_PRINT") == "false":
             print(message)
 
@@ -68,12 +69,12 @@ unique_id = os.environ["UNIQUE_ID"]
 #Path data
 print_once("Vérification des paramètres")
 
-working_directory = config["GENERAL"]["WORKING_DIRECTORY"]
+working_directory = config["GENERAL"].get("WORKING_DIRECTORY")
 if not working_directory:
     working_directory = "data"
 print_once(f"Working directory : {working_directory} ...... OK")
 
-prefix = config["GENERAL"]["PREFIX"]
+prefix = config["GENERAL"].get("PREFIX")
 if not prefix:
     prefix = "run_" + unique_id
 print_once(f"Prefix: {prefix} ...... OK")
@@ -382,23 +383,22 @@ def all_samples(inputs_dict, fastq2, fastq, bam, length_fastp = None):
 
 
 #Variables
-
 fastq2 = {}
 fastq = {}
 bam = {}
-if config["USAGE"]["TRIMMING"]:
-    length_fastp = int(config["TRIMMING"]["LENGTH"])
+
+use_trimming = config["USAGE"].get("TRIMMING")
+if use_trimming:
+    length_fastp = config["TRIMMING"].get("LENGTH")
     if not length_fastp:
-        length_fastp = 100
+        length_fastp = int(100)
 else :
     length_fastp = None
 
-csv = config["GENERAL"]["SAMPLES_FILE"]
+csv = config["GENERAL"].get("SAMPLES_FILE")
 if(check_value(csv)) :
-
     dict_csv = csv_to_dict(csv)
     all_samples = all_samples(dict_csv, fastq2, fastq, bam, length_fastp)
-
 
 else:
     dict_directory = dict_samples_directory()
@@ -423,7 +423,7 @@ if not all_samples:
 else:
     print_once("Patients ...... OK")
 
-genome = config["GENERAL"]["GENOME"]
+genome = config["GENERAL"].get("GENOME")
 if not os.path.isfile(genome):
     genome = working_directory + "/1-raw_data/reference/" + genome
 
@@ -435,7 +435,7 @@ else :
     genome = os.path.abspath(genome)
     name_genome = genome.rsplit(".",1)[0].rsplit("/",1)[1]
 
-pigz = config["DEPENDANCES"]["FORMATING"]["PIGZ"]
+pigz = config["DEPENDANCES"]["FORMATING"].get("PIGZ")
 if not pigz:
     pigz = "pigz"
 check_excutable(pigz)
@@ -444,8 +444,8 @@ include: "modules/compress_fastq.smk"
 print_once("Module compress_fastq ...... OK")
 
 #Vérification des executable de trimming.
-if config["USAGE"]["TRIMMING"]:
-    fastp = config["DEPENDANCES"]["FORMATING"]["FASTP"]
+if use_trimming:
+    fastp = config["DEPENDANCES"]["FORMATING"].get("FASTP")
     if not fastp:
         fastp = "fastp"
     check_excutable(fastp)
@@ -464,12 +464,13 @@ else:
 
 
 #Vérification des executables de qualité controle
-if config["USAGE"]["QC"]:
-    fastqc = config["DEPENDANCES"]["QC"]["FASTQC"]
+use_qc = config["USAGE"].get("QC")
+if use_qc:
+    fastqc = config["DEPENDANCES"]["QC"].get("FASTQC")
     if not fastqc:
         fastqc = "fastqc"
     check_excutable(fastqc)
-    multiqc = config["DEPENDANCES"]["QC"]["MULTIQC"]
+    multiqc = config["DEPENDANCES"]["QC"].get("MULTIQC")
     if not multiqc:
         multiqc = "multiqc"
     check_excutable(multiqc)
@@ -484,48 +485,50 @@ if config["USAGE"]["QC"]:
     html_raw = path_qc + "multiqc/fastq_raw/" + prefix + "_" + unique_id + ".html"
     list_inputs.append(directory_data_raw)
     list_inputs.append(html_raw)
-    if config["USAGE"]["TRIMMING"]:
+    if use_trimming:
         directory_data_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + "_data/"
         html_trimmed = path_qc + "multiqc/fastq_trimmed/" + prefix +"_" + unique_id + ".html"
         list_inputs.append(directory_data_trimmed)
         list_inputs.append(html_trimmed)
 
 
+
 #Vérification des dépendances spliceLauncher
-if config["USAGE"]["SPLICELAUNCHER"]:
-    STAR = config["DEPENDANCES"]["MAPPING"]["STAR"]
+use_spliceLauncher = config["USAGE"].get("SPLICELAUNCHER")
+if use_spliceLauncher:
+    STAR = config["DEPENDANCES"]["MAPPING"].get("STAR")
     if not STAR:
         STAR = "STAR"
     check_excutable(STAR)
 
-    samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
+    samtools = config["DEPENDANCES"]["MAPPING"].get("SAMTOOLS")
     if not samtools:
         samtools = "samtools"
     check_excutable("samtools")
 
-    Rscript = config["DEPENDANCES"]["GENERAL"]["RSCRIPT"]
+    Rscript = config["DEPENDANCES"]["GENERAL"].get("RSCRIPT")
     if not Rscript:
         Rscript = "Rscript"
     check_excutable(Rscript)
 
-    perl = config["DEPENDANCES"]["GENERAL"]["PERL"]
+    perl = config["DEPENDANCES"]["GENERAL"].get("PERL")
     if not perl:
         perl = "perl"
     check_excutable(perl)
 
-    bedtools = config["DEPENDANCES"]["ANALYSES"]["BEDTOOLS"]
+    bedtools = config["DEPENDANCES"]["ANALYSES"].get("BEDTOOLS")
     if not bedtools:
         bedtools = "bedtools"
     check_excutable(bedtools)
 
-    spliceLauncher = config["DEPENDANCES"]["ANALYSES"]["SPLICELAUNCHER"]
+    spliceLauncher = config["DEPENDANCES"]["ANALYSES"].get("SPLICELAUNCHER")
     if not os.path.isdir(spliceLauncher):
         print_once(f"Erreur : Le dossier {spliceLauncher} n'existe pas.")
         sys.exit(1)
     else : 
         print_once(f"Dossier {spliceLauncher} ...... OK")
     
-    gff3 = config["GENERAL"]["GFF3"]
+    gff3 = config["GENERAL"].get("GFF3")
     if not os.path.isfile(gff3):
         gff3 = working_directory + "/1-raw_data/annotation/" + gff3
 
@@ -535,7 +538,7 @@ if config["USAGE"]["SPLICELAUNCHER"]:
     else : 
         print_once(f"Fichier {gff3} ...... OK")
 
-    mane = config["GENERAL"]["MANE"]
+    mane = config["GENERAL"].get("MANE")
     if not os.path.isfile(mane):
         mane = working_directory + "/1-raw_data/annotation/" + mane
 
@@ -545,6 +548,47 @@ if config["USAGE"]["SPLICELAUNCHER"]:
     else : 
         print_once(f"Fichier {mane} ...... OK")
 
+    use_sashimi = config["SPLICELAUNCHER"]["SASHIMI_PLOT"].get("USE")
+    if use_sashimi:
+        python = config["DEPENDANCES"]["GENERAL"].get("PYTHON")
+        if not python :
+            python = "python"
+        check_excutable(python)
+
+        ggsashimi = config["DEPENDANCES"]["VISUALISATION"].get("GGSASHIMI")
+        if not os.path.isfile(ggsashimi) :
+            print_once(f"Erreur : path {ggsashimi} n'existe pas.")
+            sys.exit(1)
+        else : 
+            print_once(f"Path {ggsashimi} existant ...... OK")
+
+
+        directories_unique_junctions = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/unique_junctions/",reads= all_samples)
+        directories_significant_junctions = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/significant_junctions/",reads= all_samples)
+        list_inputs.append(directories_unique_junctions)
+        list_inputs.append(directories_significant_junctions)
+
+    if use_qc:
+        bam_stat = config["DEPENDANCES"]["QC"].get("BAM_STAT")
+        if not bam_stat:
+            bam_stat = "bam_stat.py"
+        check_excutable(bam_stat)
+
+        read_GC = config["DEPENDANCES"]["QC"].get("READ_GC")
+        if not read_GC:
+            read_GC = "read_GC.py"
+        check_excutable(read_GC)
+
+        include: "modules/quality_control_bam_spliceLauncher.smk"
+        print_once("Module quality_control_bam_spliceLauncher.smk ...... OK")
+
+        directory_data_bam_spliceLauncher = path_qc + "multiqc/BAM/spliceLauncher_STAR/" + name_genome + "/" + prefix +"_" + unique_id + "_data/"
+        html_bam_spliceLauncher = path_qc + "multiqc/BAM/spliceLauncher_STAR/" + name_genome + "/" + prefix +"_" + unique_id + ".html"
+        list_inputs.append(directory_data_bam_spliceLauncher)
+        list_inputs.append(html_bam_spliceLauncher)
+    # list_inputs.append(count_report)
+    # list_inputs.append(directory_count_results)
+    
     include: "modules/spliceLauncher.smk"
     print_once("Module spliceLauncher ...... OK")
 
@@ -554,10 +598,6 @@ if config["USAGE"]["SPLICELAUNCHER"]:
     filterFile = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
     list_inputs.append(filterFile)
     list_inputs.append(filterFilesSample)
-    # list_inputs.append(count_report)
-    # list_inputs.append(directory_count_results)
-    
-
 
 if not list_inputs:
     read1 = expand(os.path.abspath(path_fastq + "{reads}.1.fastq.gz"),reads= all_samples)
@@ -565,7 +605,7 @@ if not list_inputs:
     list_inputs.append(read1)
     list_inputs.append(read2)
 
-    if config["USAGE"]["TRIMMING"]:
+    if use_trimming:
         html = expand(path_qc + "fastp_trimming/{reads}.html",reads= all_samples)
         json = expand(path_qc + "fastp_trimming/{reads}.json",reads= all_samples)
         list_inputs.append(html)
