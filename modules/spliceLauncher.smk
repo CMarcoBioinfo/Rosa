@@ -25,6 +25,13 @@ rule spliceLauncherDB:
 
 
 
+def estimate_star_memory(genome_length):
+    bytes_per_base = 10
+    memory_required_bytes = genome_length * bytes_per_base
+
+    memory_required_mb = memory_required_bytes / (1024 * 1024)
+    return memory_required_mb
+
 sjdbOverhang = config["SPLICELAUNCHER"]["INDEX"].get("SJDB_OVERHANG")
 ram_byte = config["SPLICELAUNCHER"]["INDEX"].get("RAM")
 genomeSAsparseD = config["SPLICELAUNCHER"]["INDEX"].get("GENOME_SA_SPARSE_D")
@@ -33,26 +40,21 @@ if not sjdbOverhang:
     sjdbOverhang = int(99)
 
 if not ram_byte:
-    cmd = "free -tb | grep 'Mem:' | awk ' { print $2 } ' | awk '{printf \"%.f\", $1*0.5}'"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    ram_byte = int(result.stdout.strip())
-    cmd = "free -tm | grep 'Mem:' | awk ' { print $2 } ' | awk '{printf \"%.f\", $1*0.5}'"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    mem_mb = int(result.stdout.strip())
+    ram_byte = int(total_ram * 0.5)
+    mem_mb = int(ram_byte / (1024 * 1024))
 else :
-    mem_mb = int((int(ram_byte) / 1024))
+    mem_mb = int(int(ram_byte) / (1024 * 1024))
 
 if not genomeSAsparseD:
     genomeSAsparseD=int(31000000000 / ram_byte) + 1
 
-if not genomeSAindexNbases:
-    reference = genome
-    cmd = f"grep -v '>' {reference} | awk '{{ sum += length($0)}} END {{print sum}}'"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    genome_length = int(result.stdout.strip())
 
+genome_length = calculate_genome_length(genome)
+memory_needed_mb = estimate_star_memory(genome_length)
+if not genomeSAindexNbases:
     # Calculer min(14, log2(genome_length) / 2 - 1)
     genomeSAindexNbases = min(14, math.log2(genome_length) / 2 - 1)
+
 
 rule spliceLauncher_star_index:
     input:
@@ -94,8 +96,6 @@ rule spliceLauncher_star_index:
     resources:
         mem_mb = mem_mb
 
-    log:
-
     shell:
         "ln -sfn {input.reference} {output.reference} && "
         "{params.star} "
@@ -110,10 +110,20 @@ rule spliceLauncher_star_index:
         "--limitGenomeGenerateRAM {params.limitGenomeGenerateRAM} "
         "--genomeSAindexNbases {params.genomeSAindexNbases}"
 
+def calculate_optimal_threads(mem_mb, memory_needed_mb, max_cores, requested_threads):
+    total_mem_needed = memory_needed_mb * (max_cores // requested_threads)
+    if total_mem_needed > mem_mb :
+        max_parallel_rules = mem_mb // memory_needed_mb
+        optimal_threads = max(1, int(max_cores / max_parallel_rules))
+    else:
+        optimal_threads = requested_threads
+    
+    optimal_threads = min(optimal_threads, max_cores)
+    return optimal_threads
 
-def calculate_mem_per_rule(mem_mb, max_cores, threads):
-    max_threads = max(int((int(max_cores)/ int(threads))),1)
-    mem_per_process = int(mem_mb) / int(max_threads)
+def calculate_mem_per_rule(mem_mb, optimal_threads):
+    max_parallel_rules = mem_mb // memory_needed_mb
+    mem_per_process = int(mem_mb / max_parallel_rules)
     return int(mem_per_process)
 
 outFilterMismatchNmax = config["SPLICELAUNCHER"]["MAPPING"].get("OUT_FILTER_MISMATCH_NMAX")
@@ -123,7 +133,6 @@ if not outFilterMismatchNmax:
 outFilterMultimapNmax = config["SPLICELAUNCHER"]["MAPPING"].get("OUT_FILTER_MULTIMAP_NMAX")
 if not outFilterMultimapNmax:
     outFilterMultimapNmax = int(1)
-
 
 outSJfilterIntronMaxVsReadN = config["SPLICELAUNCHER"]["MAPPING"].get("OUT_SJ_FILTER_INTRON_MAXVSREADN")
 if not outSJfilterIntronMaxVsReadN:
@@ -163,10 +172,10 @@ rule spliceLauncher_star_align:
         STARgenome = path_bam + "spliceLauncher_STAR/" + name_genome + "/{reads}__STARpass1"
 
     threads:
-        config["SPLICELAUNCHER"]["MAPPING"]["THREADS"]
+        lambda wildcards: calculate_optimal_threads(mem_total_mb, memory_needed_mb, max_cores, int(config["SPLICELAUNCHER"]["MAPPING"]["THREADS"]))
     
     resources:
-        mem_mb = lambda wildcards,threads: calculate_mem_per_rule(mem_mb, max_cores, threads)
+        mem_mb = lambda wildcards,threads: calculate_mem_per_rule(mem_total_mb,threads)
 
     run:
         create_directory_if_not_exists(params["directory_log"])
@@ -209,7 +218,7 @@ rule spliceLauncher_samtools_sort:
         samtools = samtools
 
     threads:
-        config["PARAMS"]["STAR"]["THREADS"]
+        config["SPLICELAUNCHER"]["MAPPING"]["THREADS"]
 
     shell:
         "{params.samtools} sort "

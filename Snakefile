@@ -12,8 +12,22 @@ import time
 from inotify_simple import INotify, flags
 import fcntl
 import gc
+import psutil
 
 
+total_ram = psutil.virtual_memory().total
+#available_ram = psutil.virtual_memory().available
+mem_total_mb = int(total_ram / (1024 * 1024) * 0.8)  # On réserve 80% de la mémoire pour le système
+
+def calculate_genome_length(fasta_file):
+    genome_length = 0
+    with open(fasta_file, 'r') as f:
+        for line in f:
+            if not line.startswith('>'):
+                genome_length += len(line.strip())
+    return genome_length
+
+# cores = min(psutil.cpu_count(), workflow.cores)
 #Vérification de l'option dag et rulegraph
 args = sys.argv
 dag_mode = "--dag" in args
@@ -30,30 +44,32 @@ def print_once(message):
             print(message)
 
 if "MAX_CORES" not in os.environ:
-    bool_cores = "--cores" in args
-    if bool_cores:
+    bool_cores = False
+    if "--cores" in args:
         index_cores = sys.argv.index("--cores")
         os.environ["MAX_CORES"] = sys.argv[index_cores]
+        bool_cores = True
 
-    bool_cores = "-c" in args
-    if bool_cores :
+    if "-c" in args :
         index_cores = sys.argv.index("-c") + 1
         os.environ["MAX_CORES"] = sys.argv[index_cores]
+        bool_cores = True
 
-    bool_cores = "--jobs" in args
-    if bool_cores :
+    if "--jobs" in args :
         index_cores = sys.argv.index("--jobs") + 1
         os.environ["MAX_CORES"] = sys.argv[index_cores]
-            
-    bool_cores = "-j" in args
-    if bool_cores :
+        bool_cores = True
+
+    if "-j" in args :
         index_cores = sys.argv.index("-j") + 1
         os.environ["MAX_CORES"] = sys.argv[index_cores]
-    else:
+        bool_cores = True
+
+    if not bool_cores:
         os.environ["MAX_CORES"] = "1"
     
 max_cores = int(os.environ["MAX_CORES"])
-
+print_once(f"Valeur de max_cores : {max_cores}")
 
 #Obtenir l'heure actuelle
 if os.getenv("SNAKEMAKE_PRINT") == "false":
