@@ -93,7 +93,7 @@ def main():
             cmd += f"""-P {color} -C 3 """
         
         cmd += "'"
-        print(cmd)
+        MinThresholdNbReads = args.MinThresholdNbReads
         os.system(cmd)
 
 if __name__ == "__main__":

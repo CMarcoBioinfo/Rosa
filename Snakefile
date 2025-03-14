@@ -249,10 +249,6 @@ def check_suffix(id):
         return ext_point[0]
     return None
 
-def csv_to_dict(csv):
-    df = pd.read_csv(csv,sep = "\t")
-    dictionnary = df.groupby("id")["path"].apply(list).to_dict()
-    return dictionnary
 
 #Returns a dico of samples
 #Scans the directories in the samples directory and lists the 'fastq', '.fq' and 'bam' files.
@@ -356,52 +352,71 @@ create_directory_if_not_exists(tmp_reads2)
 create_directory_if_not_exists(tmp_bam)
 
 #Remplit les différents dictionnaire fastq, fastq2 et bam et renvoie le liste des id des que le snakemake se lance normalement.
-def all_samples(inputs_dict, fastq2, fastq, bam, length_fastp = None):
-    for key, item in inputs_dict.items():
-        if (len(item) == 2):
-            if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0]) and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1])) ):
-                if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
-                    if (length_fastp) :
-                        name_key = str(key) + "." + str(length_fastp) + "bp"
-                    else :
-                        name_key = str(key)
-                    read1 = str(tmp_reads1) + name_key + ".pre"
-                    read2 = str(tmp_reads2) + name_key + ".pre"
-                    fastq2[name_key] = [item[0],item[1]]
-                    if (not os.path.exists(read1)):
-                        os.system(f"touch {read1}")
-                    if (not os.path.exists(read2)):
-                        os.system(f"touch {read2}")
+# def all_samples(inputs_dict, fastq2, fastq, bam, length_fastp = None):
+#     for key, item in inputs_dict.items():
+#         if (len(item) == 2):
+#             if ( (os.path.exists(item[0]) and os.path.exists(item[1])) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0]) and os.path.exists(item[1] + ".gz")) or (os.path.exists(item[0] + ".gz") and os.path.exists(item[1])) ):
+#                 if ( ((".fastq" in item[0] or ".fq" in item[0])) and ((".fastq" in item[1] or ".fq" in item[1])) ) :
+#                     if (length_fastp) :
+#                         name_key = str(key) + "." + str(length_fastp) + "bp"
+#                     else :
+#                         name_key = str(key)
+#                     read1 = str(tmp_reads1) + name_key + ".pre"
+#                     read2 = str(tmp_reads2) + name_key + ".pre"
+#                     fastq2[name_key] = [item[0],item[1]]
+#                     if (not os.path.exists(read1)):
+#                         os.system(f"touch {read1}")
+#                     if (not os.path.exists(read2)):
+#                         os.system(f"touch {read2}")
 
-        elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
-            if( ".bam" in item[0]):
-                if (length_fastp) :
-                    name_key = str(key) + "." + str(length_fastp) + "bp"
-                else :
-                    name_key = str(key)
-                bam_file = str(tmp_bam) + name_key + ".pre"
-                bam[name_key] = item[0]
-                if (not os.path.exists(bam_file)):
-                    os.system(f"touch {bam_file}")
-            elif ( ".fastq" in item[0] or ".fq" in item[0]):
-                if (length_fastp) :
-                    name_key = str(key) + "." + str(length_fastp) + "bp"
-                else :
-                    name_key = str(key)
-                read = str(tmp_reads) + name_key + ".pre"
-                fastq[name_key] = item[0]
-                if (not os.path.exists(read)):
-                    os.system(f"touch {read}")
+#         elif (len(item)== 1 and (os.path.exists(item[0]) or os.path.exists(item[0] + "gz") )):
+#             if( ".bam" in item[0]):
+#                 if (length_fastp) :
+#                     name_key = str(key) + "." + str(length_fastp) + "bp"
+#                 else :
+#                     name_key = str(key)
+#                 bam_file = str(tmp_bam) + name_key + ".pre"
+#                 bam[name_key] = item[0]
+#                 if (not os.path.exists(bam_file)):
+#                     os.system(f"touch {bam_file}")
+#             elif ( ".fastq" in item[0] or ".fq" in item[0]):
+#                 if (length_fastp) :
+#                     name_key = str(key) + "." + str(length_fastp) + "bp"
+#                 else :
+#                     name_key = str(key)
+#                 read = str(tmp_reads) + name_key + ".pre"
+#                 fastq[name_key] = item[0]
+#                 if (not os.path.exists(read)):
+#                     os.system(f"touch {read}")
  
 
-    all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
+#     all_samples = set(list(fastq.keys()) + list(fastq2.keys()) + list(bam.keys()))
+#     return all_samples
+
+
+
+def process_sample(dict_csv, length_fastp=None):
+    all_samples = set()
+    for index, row in dict_csv.iterrows():
+        id_sample = row['id']
+        read1 = row['path_read1']
+        read2 = row['path_read2']
+        if (os.path.exists(read1) and os.path.exists(read2)) or \
+           (os.path.exists(read1 + ".gz") and os.path.exists(read2 + ".gz")) or \
+           (os.path.exists(read1) and os.path.exists(read2 + ".gz")) or \
+           (os.path.exists(read1 + ".gz") and os.path.exists(read2)):
+            if (".fastq" in read1 or ".fq" in read1) and (".fastq" in read2 or ".fq" in read2):
+                name_key = f"{id_sample}.{length_fastp}bp" if length_fastp else f"{id_sample}"
+                read1_path = os.path.join(tmp_reads1, name_key + ".pre")
+                read2_path = os.path.join(tmp_reads2, name_key + ".pre")
+                if not os.path.exists(read1_path):
+                    os.system(f"touch {read1_path}")
+                if not os.path.exists(read2_path):
+                    os.system(f"touch {read2_path}")
+                all_samples.add(name_key)
+
     return all_samples
 
-
-#Variables
-fastq2 = {}
-fastq = {}
-bam = {}
 
 use_trimming = config["USAGE"].get("TRIMMING")
 if use_trimming:
@@ -412,21 +427,10 @@ else :
     length_fastp = None
 
 csv = config["GENERAL"].get("SAMPLES_FILE")
+all_samples = {}
 if(check_value(csv)) :
-    dict_csv = csv_to_dict(csv)
-    all_samples = all_samples(dict_csv, fastq2, fastq, bam, length_fastp)
-
-else:
-    dict_directory = dict_samples_directory()
-    all_samples = all_samples(dict_directory, fastq2, fastq, bam, length_fastp)
-
-
-summary_file = working_directory + prefix + "/2-Counts/sample_names.txt"
-if(os.path.exists(summary_file)) :
-    df_summary = pd.read_csv(summary_file,sep="\t", header=0)
-    ids = df_summary["id"].values.tolist()
-
-
+    dict_csv = pd.read_csv(csv,sep = "\t")
+    all_samples = process_sample(dict_csv, length_fastp)
 
 #Vérification des parametre config.yaml
 
@@ -450,6 +454,7 @@ else :
     print_once(f"Fichier {genome} ...... OK")
     genome = os.path.abspath(genome)
     name_genome = genome.rsplit(".",1)[0].rsplit("/",1)[1]
+
 
 pigz = config["DEPENDANCES"]["FORMATING"].get("PIGZ")
 if not pigz:
@@ -475,7 +480,6 @@ if use_trimming:
 else:
     path_fastq = working_directory + "/1-raw_data/fastq/"
     path_bam = working_directory + "/2-processed_data/not_trimmed/BAM/"
-
 
 
 
@@ -508,10 +512,8 @@ if use_qc:
         list_inputs.append(html_trimmed)
 
 
-
-#Vérification des dépendances spliceLauncher
-use_spliceLauncher = config["USAGE"].get("SPLICELAUNCHER")
-if use_spliceLauncher:
+use_mapping = config["USAGE"].get("MAPPING")
+if use_mapping:
     STAR = config["DEPENDANCES"]["MAPPING"].get("STAR")
     if not STAR:
         STAR = "STAR"
@@ -527,23 +529,6 @@ if use_spliceLauncher:
         Rscript = "Rscript"
     check_excutable(Rscript)
 
-    perl = config["DEPENDANCES"]["GENERAL"].get("PERL")
-    if not perl:
-        perl = "perl"
-    check_excutable(perl)
-
-    bedtools = config["DEPENDANCES"]["ANALYSES"].get("BEDTOOLS")
-    if not bedtools:
-        bedtools = "bedtools"
-    check_excutable(bedtools)
-
-    spliceLauncher = config["DEPENDANCES"]["ANALYSES"].get("SPLICELAUNCHER")
-    if not os.path.isdir(spliceLauncher):
-        print_once(f"Erreur : Le dossier {spliceLauncher} n'existe pas.")
-        sys.exit(1)
-    else : 
-        print_once(f"Dossier {spliceLauncher} ...... OK")
-    
     gff3 = config["GENERAL"].get("GFF3")
     if not os.path.isfile(gff3):
         gff3 = working_directory + "/1-raw_data/annotation/" + gff3
@@ -564,25 +549,9 @@ if use_spliceLauncher:
     else : 
         print_once(f"Fichier {mane} ...... OK")
 
-    use_sashimi = config["SPLICELAUNCHER"]["SASHIMI_PLOT"].get("USE")
-    if use_sashimi:
-        python = config["DEPENDANCES"]["GENERAL"].get("PYTHON")
-        if not python :
-            python = "python"
-        check_excutable(python)
 
-        ggsashimi = config["DEPENDANCES"]["VISUALISATION"].get("GGSASHIMI")
-        if not os.path.isfile(ggsashimi) :
-            print_once(f"Erreur : path {ggsashimi} n'existe pas.")
-            sys.exit(1)
-        else : 
-            print_once(f"Path {ggsashimi} existant ...... OK")
-
-
-        directories_unique_junctions = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/unique_junctions/",reads= all_samples)
-        directories_significant_junctions = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/significant_junctions/",reads= all_samples)
-        list_inputs.append(directories_unique_junctions)
-        list_inputs.append(directories_significant_junctions)
+    include: "modules/mapping.smk"
+    print_once("Module mapping.smk ...... OK")
 
     if use_qc:
         bam_stat = config["DEPENDANCES"]["QC"].get("BAM_STAT")
@@ -595,25 +564,116 @@ if use_spliceLauncher:
             read_GC = "read_GC.py"
         check_excutable(read_GC)
 
-        include: "modules/quality_control_bam_spliceLauncher.smk"
-        print_once("Module quality_control_bam_spliceLauncher.smk ...... OK")
+        include: "modules/quality_control_bam.smk"
+        print_once("Module quality_control_bam.smk ...... OK")
 
-        directory_data_bam_spliceLauncher = path_qc + "multiqc/BAM/spliceLauncher_STAR/" + name_genome + "/" + prefix +"_" + unique_id + "_data/"
-        html_bam_spliceLauncher = path_qc + "multiqc/BAM/spliceLauncher_STAR/" + name_genome + "/" + prefix +"_" + unique_id + ".html"
-        list_inputs.append(directory_data_bam_spliceLauncher)
-        list_inputs.append(html_bam_spliceLauncher)
+        directory_data_bam = path_qc + "multiqc/BAM/" + name_genome + "/" + prefix +"_" + unique_id + "_data/"
+        html_bam = path_qc + "multiqc/BAM/" + name_genome + "/" + prefix +"_" + unique_id + ".html"
+        list_inputs.append(directory_data_bam)
+        list_inputs.append(html_bam)
     # list_inputs.append(count_report)
     # list_inputs.append(directory_count_results)
-    
-    include: "modules/spliceLauncher.smk"
-    print_once("Module spliceLauncher ...... OK")
 
-    count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt"
-    directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results"
-    filterFilesSample = expand(path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
-    filterFile = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
-    list_inputs.append(filterFile)
-    list_inputs.append(filterFilesSample)
+    #Vérification des dépendances SpliceLauncher
+    use_SpliceLauncher = config["USAGE"].get("SPLICELAUNCHER")
+    if use_SpliceLauncher:
+
+        perl = config["DEPENDANCES"]["GENERAL"].get("PERL")
+        if not perl:
+            perl = "perl"
+        check_excutable(perl)
+
+        bedtools = config["DEPENDANCES"]["ANALYSES"].get("BEDTOOLS")
+        if not bedtools:
+            bedtools = "bedtools"
+        check_excutable(bedtools)
+
+        SpliceLauncher = config["DEPENDANCES"]["ANALYSES"].get("SPLICELAUNCHER")
+        if not os.path.isdir(SpliceLauncher):
+            print_once(f"Erreur : Le dossier {SpliceLauncher} n'existe pas.")
+            sys.exit(1)
+        else : 
+            print_once(f"Dossier {SpliceLauncher} ...... OK")
+        
+        use_sashimi = config["SPLICELAUNCHER"]["SASHIMI_PLOT"].get("USE")
+        if use_sashimi:
+            python = config["DEPENDANCES"]["GENERAL"].get("PYTHON")
+            if not python :
+                python = "python"
+            check_excutable(python)
+
+            ggsashimi = config["DEPENDANCES"]["VISUALISATION"].get("GGSASHIMI")
+            if not os.path.isfile(ggsashimi) :
+                print_once(f"Erreur : path {ggsashimi} n'existe pas.")
+                sys.exit(1)
+            else : 
+                print_once(f"Path {ggsashimi} existant ...... OK")
+
+
+            directories_unique_junctions = expand(path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/unique_junctions/",reads= all_samples)
+            directories_significant_junctions = expand(path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/sashimi_plot/significant_junctions/",reads= all_samples)
+            list_inputs.append(directories_unique_junctions)
+            list_inputs.append(directories_significant_junctions)
+
+    
+        include: "modules/SpliceLauncher.smk"
+        print_once("Module SpliceLauncher ...... OK")
+
+        count_report = path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_report_" + date + ".txt"
+        directory_count_results = path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results"
+        filterFilesSample = expand(path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results/samples_results/{reads}/{reads}.significant_junctions" + extension,reads= all_samples)
+        filterFile = path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results/" +  prefix + "_" + unique_id + "_outputSpliceLauncher.significant_junctions" + extension,
+        list_inputs.append(filterFile)
+        list_inputs.append(filterFilesSample)
+
+    use_variant_calling = config["USAGE"].get("VARIANT_CALLING")
+    if use_variant_calling :
+        gatk = config["DEPENDANCES"]["ANALYSES"].get("GATK")
+        if not gatk:
+            gatk = "gatk"
+        check_excutable(gatk)
+
+        bcftools = config["DEPENDANCES"]["GENERAL"].get("BCFTOOLS")
+        if not bcftools:
+            bcftools = "bcftools"
+        check_excutable(bcftools)
+
+        bgzip = config["DEPENDANCES"]["GENERAL"].get("BGZIP")
+        if not bgzip:
+            bgzip = "bgzip"
+        check_excutable(bgzip)
+
+        vcf_known_sites = config["GENERAL"].get("VCF_KNOWN_SITES")
+        if not os.path.isfile(vcf_known_sites):
+            vcf_known_sites = working_directory + "/1-raw_data/annotation/" + vcf_known_sites
+
+        if not os.path.isfile(vcf_known_sites):
+            print_once(f"Erreur : Le fichier vcf_known_sites : {vcf_known_sites} n'existe pas.")
+            sys.exit(1)
+        else : 
+            print_once(f"Fichier {vcf_known_sites} ...... OK")
+
+        include: "modules/gatk_recalibrated.smk"
+        print_once("Module gatk_recalibrated ...... OK")
+        
+        include: "modules/gatk_variant_calling_germline.smk"
+        print_once("Module gatk_variant_calling_germline ...... OK")
+
+        # vcf = expand(path_results + "/GATK/variant_calling/{reads}.HaplotypeCaller.vcf.gz",reads= all_samples)
+        # tbi = expand(path_results + "/GATK/variant_calling/{reads}.HaplotypeCaller.vcf.gz.tbi",reads= all_samples)
+        # list_inputs.append(vcf)
+        # list_inputs.append(tbi)
+        vcf = expand(path_results + "/GATK/variant_calling/{reads}.filtered.vcf.gz",reads= all_samples)
+        tbi = expand(path_results + "/GATK/variant_calling/{reads}.filtered.vcf.gz.tbi",reads= all_samples)
+        list_inputs.append(vcf)
+        list_inputs.append(tbi)
+
+    if not list_inputs:
+        bai = expand(path_bam + name_genome + "/mapping/{reads}.sorted.bam.bai",reads= all_samples)
+        list_inputs.append(bai)
+
+else:
+    print_once("Nothing mapped ...... nothing analyzed")
 
 if not list_inputs:
     read1 = expand(os.path.abspath(path_fastq + "{reads}.1.fastq.gz"),reads= all_samples)
@@ -649,7 +709,6 @@ os.environ["SNAKEMAKE_PRINT"] = "true"
 #         directory_data_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix +"_bam_" + unique_id + "_data/",
 #         html_bam = working_directory + prefix + "/quality_control/multiqc/" + prefix  + "_bam_" + unique_id + ".html",
 
-
 rule all:
     input:
         list_inputs
@@ -672,9 +731,9 @@ onsuccess:
 
 
 onerror:
-    mergeFile = path_results + "/spliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".txt "
-    count_report = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "._report_" + date + ".txt "
-    directory_count_results = path_results + "/spliceLauncher/" + prefix + "_" + unique_id + "_results "
+    mergeFile = path_results + "/SpliceLauncher/mergeFile/" + prefix + "_" + unique_id + ".txt "
+    count_report = path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "._report_" + date + ".txt "
+    directory_count_results = path_results + "/SpliceLauncher/" + prefix + "_" + unique_id + "_results "
     command =  "rm -rf " + mergeFile + count_report + directory_count_results + "&& bash scripts/clear_cache.sh"
     memory_release()
     shell(command)

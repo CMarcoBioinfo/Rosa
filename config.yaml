@@ -3,70 +3,79 @@
 
 DEPENDANCES:
     GENERAL:
-        BASH: "bash"
-        RSCRIPT: "Rscript"
-        PERL: "perl"
-        AWK: "awk"
-        PYTHON: "python"
+        BASH: "/usr/bin/bash" # [required] path to bash executable
+        RSCRIPT: "/usr/bin/Rscript" # [required] path to Rscript executable
+        PERL: "/usr/bin/perl" # [required] path to perl executable
+        AWK: "/usr/bin/awk" # [required] path to awk executable
+        PYTHON: "/home/m_corentin/Environnements/python3.12/bin/python" # [required] path to python3 executable
     FORMATING:
-        PIGZ: "pigz" # [required] path to pigz executable
-        FASTP: "fastp" # [required] path to fastqc executable
+        PIGZ: "/usr/bin/pigz" # [required] path to pigz executable
+        FASTP: "/usr/bin/fastp" # [required] path to fastqc executable
         GTF2BED: "gtfbed" # [required] path to fastqc executable
     QC:
-        FASTQC: "fastqc" # [required] path to fastqc executable
+        FASTQC: "/usr/bin/fastqc" # [required] path to fastqc executable
         KMEREXPLOR: "kmerexplor" # [required] path to kermerExplorer executable
-        MULTIQC: "multiqc" # [required] path to multiqc executable
-        BAM_STAT: ""
-        READ_GC: ""
+        MULTIQC: "/home/m_corentin/Environnements/python3.12/bin/multiqc" # [required] path to multiqc executable
+        BAM_STAT: "/home/m_corentin/Environnements/python3.12/bin/bam_stat.py" # [required] path to bam_stat.py executable
+        READ_GC: "/home/m_corentin/Environnements/python3.12/bin/read_GC.py" # [required] path to read_GC.py executable
     MAPPING:
         HISAT2:  "hisat2" # [required] path to hisat2 executable
-        STAR : "STAR" # [required] path to STAR; 
-        SAMTOOLS: "samtools" # [required] path to samtools executable
+        STAR : "/usr/bin/STAR" # [required] path to STAR; 
+        SAMTOOLS: "/usr/bin/samtools" # [required] path to samtools executable
     ANALYSES:
-        BEDTOOLS: "bedtools"
-        SPLICELAUNCHER: "/home/micro/Marco_Corentin/11-Snakemake/Rosa/SpliceLauncher" # [required] path to directory of spliceLauncher
+        BEDTOOLS: "/usr/bin/bedtools" # [required] path to bedtools executable
+        SPLICELAUNCHER: "/home/m_corentin/Rosa/SpliceLauncher" # [required] path to directory of SpliceLauncher
+        GATK: "/home/m_corentin/Bureau/gatk-4.6.1.0/gatk" # [required] path to gatk executable/directory
+        BCFTOOLS: "/usr/bin/bcftools" # [required] path to bcftools executable
+        BGZIP: "/usr/bin/bgzip"
         FEATURECOUNTS: "featureCounts" # [required] path to featureCounts executable
     VISUALISATION:
-        GGSASHIMI: "/home/micro/Marco_Corentin/02-tools/ggsashimi/ggsashimi.py"
+        GGSASHIMI: "/usr/bin/ggsashimi.py" # [required] path to ggsashimi.py executable
 
 GENERAL:
         WORKING_DIRECTORY: "data"  # [required] Path to input data tree. Default folder is data
-        PREFIX: "library_04_2023_to_S05_2025"  # [required] Name of run        
-        SAMPLES_FILE: "data/metadata/samples_path/library_04_2023_to_S05_2025.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
-        GENOME:  "Ensembl.GRCh37.dna.chr.fa"  # [required] path to reference or Name of reference file in working_directory/reference/
+        PREFIX: "library_04_2023_S05_2025"  # [required] Name of run        
+        SAMPLES_FILE: "data/metadata/samples_path/library_04_2023_to_S05_2025_test.csv" # [optional] Path to inputs (fastq/bam) files. (ID and paths)
+        GENOME:  "Homo_sapiens.GRCh37.dna.primary_assembly.chr.fa"  # [required] path to reference or Name of reference file in working_directory/reference/
         GTF: "gencode.v19.annotation.gtf" # [required] path to gtf Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
-        GFF3: "gencode.v19.annotation.gff3"
-        MANE: "MANE.to.splicelauncher.txt"
-
+        GFF3: "gencode.v19.annotation.gff3" # [required] path to gff3 Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
+        MANE: "MANE.to.splicelauncher.txt"  # [required] path to Mane Name of gene annotation file in gtf/gff/saf format in working_directory/annotation
+        VCF_KNOWN_SITES: "/home/m_corentin/Rosa/data/1-raw_data/annotation/00-All.chr.vcf.gz"  # [required] path to vcf Name of gene annotation file. I is vcf to genome.
+        THREADS: 5 # [required] number of threads use for rules general
 
 USAGE:
-    TRIMMING: 1
-    QC: 1
-    SPLICELAUNCHER: 1
+    TRIMMING: 1 # [required] 0: Not use trimming rules. 1: Use trimming rules
+    QC: 0 # [required] 0: Not use controle quality rules. 1: Use controle quality rules
+    MAPPING: 1 # [required] 0: Not use mapping rules. 1: Use mapping rules
+    SPLICELAUNCHER: 0 # [required] 0: Not use SpliceLauncher rules. 1: Use SpliceLauncher rules
+    VARIANT_CALLING: 1 # [required] 0: Not use variant calling rules. 1: Use variant calling rules
 
-
+    
 TRIMMING:
-    THREADS: 3
+    THREADS: 5 # [required] number of threads use for rules
     LENGTH: 100 # [required] reads shorted than length_required will be discarded
 
 QUALITY_CONTROLE:
     FASTQC:
-        THREADS: 3 
+        THREADS: 5 # [required] number of threads use for rules
     MULTIQC:
-        THREADS: 3
-    
-SPLICELAUNCHER:
+        THREADS: 5 # [required] number of threads use for rules
+
+MAPPING:
     INDEX:
         SJDB_OVERHANG:  # [optional] (int) minimum overhang (i.e. block size) for annotated (sjdb) spliced alignments. Default: 99
         GENOME_SA_SPARSE_D:  # [optional] (int) suffux array sparsity, i.e. distance between indices: use bigger numbers to decrease needed RAM at the cost of mapping speed reduction. 
         RAM:  # [optional] (int) maximum avalable RAM (bytes) for genome generation 
-        GENOME_SA_INDEX_NBASES: 12 # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
-        THREADS: 3
-    MAPPING:
+        GENOME_SA_INDEX_NBASES:  # [optional] (int) length (bases) of the SA pre-indexing string. Typically between 10 and 15. Longer strings will use mush more memory, but allow faster searcges. for small genomes, the parammeter -genomeSAindexNbases must be scaled down to min(14, log2(GenomeLength)/2-1)
+        THREADS: 12 # [required] number of threads use for rules
+    ALIGN:
         OUT_FILTER_MISMATCH_NMAX: 2 # [optional] (int)
         OUT_FILTER_MULTIMAP_NMAX: 1 # [optional] (int)
         OUT_SJ_FILTER_INTRON_MAXVSREADN: 500000 # [optional] (int)
-        THREADS: 3
+        THREADS: 4 # [required] number of threads use for rules
+    
+
+SPLICELAUNCHER:
     ANALYSE:
         GENES_OF_INTEREST: "SLA-DFT-Sureselect-V3.csv" #[optional]
         NB_INTERVALS:  #[optinal] (int)
@@ -89,32 +98,15 @@ SPLICELAUNCHER:
         NUMBER_SAMPLES:
         EXTEND_BP: 
         MIN_THRESHOLD_NB_READS:
-        COLOR: "/home/micro/Marco_Corentin/11-Snakemake/Rosa/data/metadata/other/palette.txt"
+        COLOR: "/home/m_corentin/Rosa/data/metadata/other/palette.txt"
 
-
-
-PARAMS:
-    FILTERFASTQ:
-        USE:  0 #[required] 0: Fastq is not filtered (fastp). 1: Fastq is filtered (fastp)
-        THREADS: 1  # [required] Maximum number of threads the rule can use
-    FASTQC:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    FASTP:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    HISAT2:
-        THREADS: 3  # [required] Maximum number of threads the rule can use
-    SAMTOOLS:
-        THREADS: 1  # [required] Maximum number of threads the rule can use
-    COMPRESS:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    FEATURECOUNTS:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    KMEREXPLOR:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    MULTIQC:
-        THREADS: 1 # [required] Maximum number of threads the rule can use
-    MERGING:
-        THREADS: 2 # [required] Maximum number of threads the rule can use
-    STAR:
-        THREADS: 3
-
+GATK:
+    RECALIBRATE:
+        THREADS: 6 # [required] number of threads use for rules
+    VARIANT_CALLING:
+        LOW_DP: 
+        LOW_MQ:
+        HIGH_FS:
+        LOW_QD:
+        HIGHSOR:
+        THREADS: 12 # [required] number of threads use for rules

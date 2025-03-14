@@ -1,69 +1,50 @@
 rule bam_stat:
     input:
-        bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam"
+        bam = os.path.abspath(path_bam + name_genome + "/mapping/{reads}.sorted.bam"),
+        csi = path_bam + name_genome + "/mapping/{reads}.sorted.bam.csi",
 
     output:        
-        stats = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/bam_stat/{reads}.stats"
+        stats = path_qc + "BAM/" + name_genome +"/bam_stat/{reads}.stats",
+
+    params:
+        bam_stat = bam_stat
 
     shell:
-        "bam_stat.py -i {input.bam} > {output.stats}"
+        "{params.bam_stat} -i {input.bam} > {output.stats}"
 
 
 rule read_gc:
     input:
-        bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam"
-    
+        bam = os.path.abspath(path_bam + name_genome + "/mapping/{reads}.sorted.bam"),
+        csi = path_bam + name_genome + "/mapping/{reads}.sorted.bam.csi",
+
     output:
-        plot_pdf = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC_plot.pdf",
-        plot_r = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC_plot.r",
-        xls= config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC.xls"
+        plot_pdf = path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC_plot.pdf",
+        plot_r = path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC_plot.r",
+        xls = path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC.xls"
 
     params:
-        path = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}"
+        path_gen = path_qc + "BAM/" + name_genome + "/read_GC/{reads}",
+        path = path_qc + "BAM/" + name_genome + "/read_GC/{reads}",
+        read_GC  = read_GC
 
     shell:
-        "read_GC.py -i {input.bam} -o {params.path}"
-
-# rule kmerexplor:
-#     input:
-#         read = expand(config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/samples/reads1/{reads}_1.fastq.gz"),
-       
-
-#     output:
-
-#     params:
-#         fastqc = config["DEPENDANCES"]["KMEREXPLOR"]
+        "mkdir -p {params.path_gen} && "
+        "{params.read_GC} -i {input.bam} -o {params.path}"
 
 
-
-#     threads:
-#         config["PARAMS"]["KMEREXPLOR"]["THREADS"]
-
-#     shell:
-
-
-# rule qualimap:
-#     input:
-
-#     output:
-
-#     params:
-
-#     threads:
-
-#     shell:
 
 rule samtools_stats:
     input:
-        bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",
-        bai = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai"
+        bam = os.path.abspath(path_bam + name_genome + "/mapping/{reads}.sorted.bam"),
+        bai = path_bam + name_genome + "/mapping/{reads}.sorted.bam.bai",
 
     
     output:
-        stats = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.stats"
+        stats = path_qc + "BAM/" + name_genome + "/samtools/{reads}.stats"
 
     params:
-        samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
+        samtools = samtools
 
     threads:
         config["PARAMS"]["SAMTOOLS"]["THREADS"]
@@ -76,14 +57,14 @@ rule samtools_stats:
 
 rule samtools_flagstat:
     input:
-        bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",
-        bai = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai"
+        bam = os.path.abspath(path_bam + name_genome + "/mapping/{reads}.sorted.bam"),
+        bai = path_bam + name_genome + "/mapping/{reads}.sorted.bam.bai",
     
     output:
-        flagstat = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.flagstat"
+        flagstat = path_qc + "BAM/" + name_genome + "/samtools/{reads}.flagstat"
 
     params:
-        samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
+        samtools = samtools
 
     threads:
         config["PARAMS"]["SAMTOOLS"]["THREADS"]
@@ -93,85 +74,53 @@ rule samtools_flagstat:
         "-@ {threads} {input.bam} > {output.flagstat}"
 
 
-rule samtools_depth:
-    input:
-        bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",
-        bai = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",
-        bed = (config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["GENERAL"]["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed"
-
-
-    output:
-        depth = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.depth"
-
-    params:
-        samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
-
-    shell:
-        "{params.samtools} depth "
-        "-b {input.bed} "
-        "{input.bam} "
-        "-o {output.depth}"
-
-
-# rule samtools_coverage:
+# rule samtools_depth:
 #     input:
-#         bam = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam",
-#         bai = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/1-mapping/{reads}.sorted.bam.bai",
-#         bed3 = (config["GENERAL"]["DATA_INPUTS"]["WORKING_DIRECTORY"] + "/1-raw_data/annotation/" + config["GENERAL"]["DATA_INPUTS"]["ANNOTATION"]).rsplit(".",1)[0] + ".bed3"
-
+#         bam = os.path.abspath(path_bam  + name_genome + "/{reads}.sorted.bam"),
+#         bai = path_bam + name_genome + "/{reads}.sorted.bam.bai",
+#         bed = path_bam + name_genome + "/{reads}_juncs.bed"
 
 #     output:
-#         cov = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.cov"
+#         depth = path_qc + "BAM/" + name_genome + "/samtools/{reads}.depth"
 
 #     params:
-#         samtools = config["DEPENDANCES"]["MAPPING"]["SAMTOOLS"]
+#         samtools = samtools
 
 #     shell:
-#         "{params.samtools} coverage "
-#         "-b {input.bed3} "
+#         "{params.samtools} depth "
+#         "-b {input.bed} "
 #         "{input.bam} "
-#         "-o {output.cov}"
-
-
-# rule qualimap:
-#     input:
-
-#     output:
-
-#     params:
-
-
-#     threads:
-
-#     shell:
-
+#         "-o {output.depth}"
 
     
 rule multiqc_bam:
     input:
-        bam_stats = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/bam_stat/{reads}.stats",reads = all_samples),
-        plot_pdf = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC_plot.pdf",reads = all_samples),
-        plot_r = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC_plot.r",reads = all_samples),
-        xls= expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/read_GC/{reads}.GC.xls",reads = all_samples),
-        samtools_stats = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.stats",reads = all_samples),
-        samtools_flagstats = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.flagstat",reads = all_samples),
-        samtools_depth = expand(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/samtools/{reads}.depth",reads = all_samples)
+        bam_stats = expand(path_qc + "BAM/" + name_genome +"/bam_stat/{reads}.stats",reads = all_samples),
+        plot_pdf = expand(path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC_plot.pdf",reads = all_samples),
+        plot_r = expand(path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC_plot.r",reads = all_samples),
+        xls= expand(path_qc + "BAM/" + name_genome + "/read_GC/{reads}.GC.xls",reads = all_samples),
+        samtools_stats = expand(path_qc + "BAM/" + name_genome + "/samtools/{reads}.stats",reads = all_samples),
+        samtools_flagstats = expand(path_qc + "BAM/" + name_genome + "/samtools/{reads}.flagstat",reads = all_samples),
+       #samtools_depth = expand(path_qc + "BAM/" + name_genome + "/samtools/{reads}.depth",reads = all_samples),
+        log_final = expand(path_bam  + name_genome + "/mapping/log_star/{reads}_Log.final.out",reads = all_samples),
+        log = expand(path_bam  + name_genome + "/mapping/log_star/{reads}_Log.out",reads = all_samples),
+        log_progress = expand(path_bam  + name_genome + "/mapping/log_star/{reads}_Log.progress.out",reads = all_samples),
+        tab = expand(path_bam  + name_genome + "/mapping/log_star/{reads}_SJ.out.tab",reads = all_samples),
 
     output:
-        directory_data = directory(config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] +"_bam_" + unique_id + "_data/"),
-        html = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/" + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"]  + "_bam_" + unique_id + ".html"
-    
+        directory_data = directory(path_qc + "multiqc/BAM/" + name_genome + "/" + prefix +"_" + unique_id + "_data/"),
+        html = path_qc + "multiqc/BAM/" + name_genome + "/" + prefix +"_" + unique_id + ".html"
+
     params:
-        name = config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "_bam_" + unique_id,
-        multiqc = config["DEPENDANCES"]["QC"]["MULTIQC"],
-        path_analysis = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"],
-        path = config["GENERAL"]["DATA_OUTPUTS"]["WORKING_DIRECTORY"] + config["GENERAL"]["DATA_OUTPUTS"]["PREFIX"] + "/quality_control/multiqc/"
+        name = prefix + "_" + unique_id,
+        multiqc = multiqc,
+        path =  path_qc + "multiqc/BAM/" + name_genome + "/"
 
     threads:
         config["PARAMS"]["MULTIQC"]["THREADS"]
         
     shell:
         "{params.multiqc} "
-        "{input.bam_stats} {input.plot_pdf} {input.plot_r} {input.xls} {input.samtools_stats} {input.samtools_flagstats} {input.samtools_depth} "
+        "{input.bam_stats} {input.plot_pdf} {input.plot_r} {input.xls} {input.samtools_stats} {input.samtools_flagstats} {input.log_final} {input.log} {input.log_progress} {input.tab} "
         "--filename {params.name} "
         "-o {params.path}"

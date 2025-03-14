@@ -13,7 +13,7 @@ rule compress_fastq:
         pigz = pigz
 
     threads: 
-        config["PARAMS"]["COMPRESS"]["THREADS"]
+        config["GENERAL"]["THREADS"]
     
     priority: 5
 

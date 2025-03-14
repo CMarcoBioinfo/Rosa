@@ -19,7 +19,7 @@ rule fastp_trimming:
 
 
     threads:
-        config["PARAMS"]["FASTP"]["THREADS"]
+        config["GENERAL"]["THREADS"]
 
     run:
         create_directory_if_not_exists(params["directory_trimmed"])
