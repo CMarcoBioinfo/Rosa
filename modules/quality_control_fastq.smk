@@ -13,7 +13,7 @@ rule fastqc_raw:
         directory = path_qc + "fastqc_raw/"
 
     threads:
-        config["PARAMS"]["FASTQC"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
     
     log:
         out = working_directory  + "/log/fastqc_raw/{reads}.out",
@@ -45,7 +45,7 @@ rule multiqc_fastq_raw:
         path = path_qc + "multiqc/fastq_raw/"
 
     threads:
-        config["PARAMS"]["MULTIQC"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
         
     shell:
         "{params.multiqc} "
@@ -68,7 +68,7 @@ rule fastqc_trimmed:
         directory = path_qc + "fastqc_trimmed/"
 
     threads:
-        config["PARAMS"]["FASTQC"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
     
     log:
         out = working_directory  + "/log/fastqc_trimmed/{reads}.out",
@@ -102,7 +102,7 @@ rule multiqc_fastq_trimmed:
         path =  path_qc + "multiqc/fastq_trimmed/"
 
     threads:
-        config["PARAMS"]["MULTIQC"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
         
     shell:
         "{params.multiqc} "

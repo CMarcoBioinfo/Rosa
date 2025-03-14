@@ -47,7 +47,7 @@ rule samtools_stats:
         samtools = samtools
 
     threads:
-        config["PARAMS"]["SAMTOOLS"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
 
     shell:
         "{params.samtools} stats "
@@ -67,7 +67,7 @@ rule samtools_flagstat:
         samtools = samtools
 
     threads:
-        config["PARAMS"]["SAMTOOLS"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
 
     shell:
         "{params.samtools} flagstat "
@@ -117,7 +117,7 @@ rule multiqc_bam:
         path =  path_qc + "multiqc/BAM/" + name_genome + "/"
 
     threads:
-        config["PARAMS"]["MULTIQC"]["THREADS"]
+        config["QUALITY_CONTROLE"]["THREADS"]
         
     shell:
         "{params.multiqc} "
